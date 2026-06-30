@@ -1,0 +1,446 @@
+[
+  {
+    "userId": "worker1",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1782817013667
+  },
+  {
+    "userId": "worker1",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1782817018662
+  },
+  {
+    "userId": "worker1",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1782817023665
+  },
+  {
+    "userId": "worker1",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1782817028664
+  },
+  {
+    "userId": "worker1",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1782817033668
+  },
+  {
+    "userId": "worker1",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1782817038668
+  },
+  {
+    "userId": "worker1",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1782817043675
+  },
+  {
+    "userId": "worker1",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1782817048666
+  },
+  {
+    "userId": "worker1",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1782817053667
+  },
+  {
+    "userId": "worker2",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1782817110147
+  },
+  {
+    "userId": "worker2",
+    "bpm": 81,
+    "spo2": 98,
+    "timestamp": 1782817111669
+  },
+  {
+    "userId": "worker2",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1782817115153
+  },
+  {
+    "userId": "worker2",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1782817120148
+  },
+  {
+    "userId": "worker2",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1782817125152
+  },
+  {
+    "userId": "worker2",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1782817130146
+  },
+  {
+    "userId": "worker2",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1782817135151
+  },
+  {
+    "userId": "worker2",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1782817140143
+  },
+  {
+    "userId": "worker2",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1782817145145
+  },
+  {
+    "userId": "worker1",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1782819465625
+  },
+  {
+    "userId": "worker1",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1782819470568
+  },
+  {
+    "userId": "worker1",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1782819475582
+  },
+  {
+    "userId": "worker1",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1782819480617
+  },
+  {
+    "userId": "worker1",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1782819485614
+  },
+  {
+    "userId": "worker1",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1782819490632
+  },
+  {
+    "userId": "worker1",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1782819495653
+  },
+  {
+    "userId": "worker1",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1782819500596
+  },
+  {
+    "userId": "worker1",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1782819505606
+  },
+  {
+    "userId": "worker1",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1782819510671
+  },
+  {
+    "userId": "worker1",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1782819515629
+  },
+  {
+    "userId": "worker1",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1782819520638
+  },
+  {
+    "userId": "worker1",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1782819525653
+  },
+  {
+    "userId": "worker1",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1782819530605
+  },
+  {
+    "userId": "worker1",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1782819535615
+  },
+  {
+    "userId": "worker1",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1782819540617
+  },
+  {
+    "userId": "worker1",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1782819545623
+  },
+  {
+    "userId": "worker1",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1782819550643
+  },
+  {
+    "userId": "worker1",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1782819555660
+  },
+  {
+    "userId": "worker1",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1782819572177
+  },
+  {
+    "userId": "worker1",
+    "bpm": 84,
+    "spo2": 96,
+    "timestamp": 1782819577090
+  },
+  {
+    "userId": "worker1",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1782819582087
+  },
+  {
+    "userId": "worker1",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1782819587095
+  },
+  {
+    "userId": "worker1",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1782819592119
+  },
+  {
+    "userId": "worker1",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1782819597130
+  },
+  {
+    "userId": "worker1",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1782819616251
+  },
+  {
+    "userId": "worker1",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1782819621293
+  },
+  {
+    "userId": "worker1",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1782819626243
+  },
+  {
+    "userId": "worker1",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1782819631259
+  },
+  {
+    "userId": "worker1",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1782819636265
+  },
+  {
+    "userId": "worker1",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1782819641297
+  },
+  {
+    "userId": "worker1",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1782819646284
+  },
+  {
+    "userId": "worker1",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1782819651296
+  },
+  {
+    "userId": "worker1",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1782819725464
+  },
+  {
+    "userId": "worker1",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1782819730463
+  },
+  {
+    "userId": "worker1",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1782819735481
+  },
+  {
+    "userId": "worker1",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1782819740444
+  },
+  {
+    "userId": "worker1",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1782819745438
+  },
+  {
+    "userId": "worker1",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1782819750444
+  },
+  {
+    "userId": "worker1",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1782819755445
+  },
+  {
+    "userId": "worker1",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1782819760448
+  },
+  {
+    "userId": "worker1",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1782819765480
+  },
+  {
+    "userId": "worker1",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1782819992248
+  },
+  {
+    "userId": "worker1",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1782819997222
+  },
+  {
+    "userId": "worker1",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1782820002217
+  },
+  {
+    "userId": "worker1",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1782820007255
+  },
+  {
+    "userId": "worker1",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1782820012235
+  },
+  {
+    "userId": "worker1",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1782820017224
+  },
+  {
+    "userId": "worker1",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1782820022252
+  },
+  {
+    "userId": "worker1",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1782820027245
+  },
+  {
+    "userId": "worker1",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1782820032241
+  },
+  {
+    "userId": "worker1",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1782820037270
+  },
+  {
+    "userId": "worker1",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1782820139970
+  },
+  {
+    "userId": "worker1",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1782820144965
+  },
+  {
+    "userId": "worker1",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1782820149934
+  },
+  {
+    "userId": "worker1",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1782820214782
+  }
+]

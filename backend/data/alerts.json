@@ -1,0 +1,55 @@
+[
+  {
+    "id": "alert_1782819758227",
+    "userId": "worker1",
+    "type": "manual",
+    "status": "resolved",
+    "timestamp": 1782819758227,
+    "resolvedAt": 1782819778487
+  },
+  {
+    "id": "alert_1782819741763",
+    "userId": "worker1",
+    "type": "fall",
+    "status": "resolved",
+    "timestamp": 1782819741763,
+    "resolvedAt": 1782819750401
+  },
+  {
+    "id": "alert_1782819740666",
+    "userId": "worker1",
+    "type": "fall",
+    "status": "active",
+    "timestamp": 1782819740666
+  },
+  {
+    "id": "alert_1782819738348",
+    "userId": "worker1",
+    "type": "fall",
+    "status": "active",
+    "timestamp": 1782819738348
+  },
+  {
+    "id": "alert_1782819547244",
+    "userId": "worker1",
+    "type": "fall",
+    "status": "resolved",
+    "timestamp": 1782819547244,
+    "resolvedAt": 1782819684295
+  },
+  {
+    "id": "alert_1782819546160",
+    "userId": "worker1",
+    "type": "fall",
+    "status": "active",
+    "timestamp": 1782819546160
+  },
+  {
+    "id": "alert_1782819542044",
+    "userId": "worker1",
+    "type": "fall",
+    "status": "resolved",
+    "timestamp": 1782819542044,
+    "resolvedAt": 1782819672200
+  }
+]

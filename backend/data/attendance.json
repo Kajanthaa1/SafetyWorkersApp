@@ -1,0 +1,26 @@
+[
+  {
+    "id": "att_1782819594807",
+    "userId": "worker1",
+    "action": "clock_in",
+    "timestamp": 1782819594807,
+    "latitude": 37.77644273654431,
+    "longitude": -122.4180534866217
+  },
+  {
+    "id": "att_1782819597329",
+    "userId": "worker1",
+    "action": "clock_out",
+    "timestamp": 1782819597329,
+    "latitude": 37.77356761764254,
+    "longitude": -122.41694170033405
+  },
+  {
+    "id": "att_1782819598657",
+    "userId": "worker1",
+    "action": "clock_in",
+    "timestamp": 1782819598657,
+    "latitude": 37.77717154570574,
+    "longitude": -122.41982462309146
+  }
+]
