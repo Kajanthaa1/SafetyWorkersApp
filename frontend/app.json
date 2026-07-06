@@ -12,7 +12,58 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-font"
-    ]
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow SafetyWorkerApp to access your location for real-time weather conditions and attendance tracking.",
+          "locationAlwaysPermission": "Allow SafetyWorkerApp to always access your location for safety monitoring.",
+          "locationWhenInUsePermission": "Allow SafetyWorkerApp to access your location while the app is in use."
+        }
+      ],
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": true,
+          "modes": [
+            "peripheral",
+            "central"
+          ],
+          "bluetoothAlwaysPermission": "Allow SafetyWorkerApp to connect to your ESP32 SafetyBand wearable device."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "minSdkVersion": 23
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ]
+    ],
+    "android": {
+      "permissions": [
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "ios": {
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "SafetyWorkerApp needs Bluetooth to connect to your ESP32 SafetyBand wearable.",
+        "NSBluetoothPeripheralUsageDescription": "SafetyWorkerApp needs Bluetooth to connect to your ESP32 SafetyBand wearable.",
+        "NSLocationWhenInUseUsageDescription": "SafetyWorkerApp needs your location for real-time weather conditions and attendance.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "SafetyWorkerApp needs your location for real-time safety monitoring."
+      }
+    }
   }
 }
+

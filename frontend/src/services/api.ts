@@ -13,25 +13,23 @@ const getBackendUrl = () => {
     }
   }
 
-  // Check if running on Expo Go/native device and we can get hostUri
+  // Extract IP from Expo Constants for physical devices (Expo Go)
   try {
-    const hostUri = Constants.expoConfig?.hostUri;
+    const hostUri = Constants.expoConfig?.hostUri || Constants.experienceUrl;
     if (hostUri) {
-      const ip = hostUri.split(':')[0];
-      if (ip) {
-        console.log(`[API] Determined backend IP from hostUri: ${ip}`);
-        return `http://${ip}:5000`;
+      // Find IPv4 address in the string
+      const ipMatch = hostUri.match(/(\d+\.\d+\.\d+\.\d+)/);
+      if (ipMatch && ipMatch[1]) {
+        console.log(`[API] Determined backend IP: ${ipMatch[1]}`);
+        return `http://${ipMatch[1]}:5000`;
       }
     }
   } catch (err) {
-    console.warn('Failed to get host URI from Constants, using default:', err);
+    console.warn('Failed to get IP from Constants, using default:', err);
   }
 
-  // Default for emulators / development
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:5000';
-  }
-  return 'http://localhost:5000';
+  // Hardcode fallback to your machine's exact local IP for Expo Go compatibility
+  return 'http://192.168.8.195:5000';
 };
 
 export const API_BASE = getBackendUrl();
@@ -56,68 +54,80 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export const api = {
   // Auth
-  login: (username: string) => 
+  login: (username: string, password: string, latitude?: number, longitude?: number) =>
     request<any>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username }),
+      body: JSON.stringify({ username, password, latitude: latitude ?? 0, longitude: longitude ?? 0 }),
+    }),
+
+  signup: (name: string, username: string, password: string, role: string = 'worker') =>
+    request<any>('/api/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify({ name, username, password, role }),
+    }),
+
+  logout: (userId: string, latitude?: number, longitude?: number) =>
+    request<any>('/api/auth/logout', {
+      method: 'POST',
+      body: JSON.stringify({ userId, latitude: latitude ?? 0, longitude: longitude ?? 0 }),
     }),
 
   // Workers listing (for supervisor)
-  fetchWorkers: () => 
+  fetchWorkers: () =>
     request<any[]>('/api/users/workers'),
 
   // Vitals
-  fetchVitals: (userId: string, minutes: number = 30) => 
+  fetchVitals: (userId: string, minutes: number = 30) =>
     request<any[]>(`/api/vitals/${userId}?minutes=${minutes}`),
 
-  submitVitals: (userId: string, bpm: number, spo2: number) => 
+  submitVitals: (userId: string, bpm: number, spo2: number, source: 'ble' | 'gsm' = 'ble') =>
     request<any>('/api/vitals', {
       method: 'POST',
-      body: JSON.stringify({ userId, bpm, spo2 }),
+      body: JSON.stringify({ userId, bpm, spo2, source }),
     }),
 
   // Attendance
-  fetchAttendance: (userId?: string) => 
+  fetchAttendance: (userId?: string) =>
     request<any[]>(userId ? `/api/attendance/${userId}` : '/api/attendance'),
 
-  submitAttendance: (userId: string, action: 'clock_in' | 'clock_out', latitude: number, longitude: number) => 
+  submitAttendance: (userId: string, action: 'clock_in' | 'clock_out', latitude: number, longitude: number) =>
     request<any>('/api/attendance', {
       method: 'POST',
       body: JSON.stringify({ userId, action, latitude, longitude }),
     }),
 
   // Tasks
-  fetchTasks: (userId?: string) => 
+  fetchTasks: (userId?: string) =>
     request<any[]>(userId ? `/api/tasks?userId=${userId}` : '/api/tasks'),
 
-  createTask: (userId: string, title: string, assignedBy: string) => 
+  createTask: (userId: string, title: string, assignedBy: string) =>
     request<any>('/api/tasks', {
       method: 'POST',
       body: JSON.stringify({ userId, title, assignedBy }),
     }),
 
-  updateTaskStatus: (taskId: string, status: 'pending' | 'in_progress' | 'done') => 
+  updateTaskStatus: (taskId: string, status: 'pending' | 'in_progress' | 'done') =>
     request<any>(`/api/tasks/${taskId}`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     }),
 
   // Alerts
-  fetchAlerts: (userId?: string) => 
+  fetchAlerts: (userId?: string) =>
     request<any[]>(userId ? `/api/alerts?userId=${userId}` : '/api/alerts'),
 
-  triggerAlert: (userId: string, type: 'manual' | 'fall') => 
+  triggerAlert: (userId: string, type: 'manual' | 'fall') =>
     request<any>('/api/alerts', {
       method: 'POST',
       body: JSON.stringify({ userId, type }),
     }),
 
-  resolveAlert: (alertId: string) => 
+  resolveAlert: (alertId: string) =>
     request<any>(`/api/alerts/${alertId}/resolve`, {
       method: 'PATCH',
     }),
 
-  // Weather
-  fetchWeather: (lat: number, lon: number) => 
+  // Real-time weather (uses device GPS coordinates)
+  fetchWeather: (lat: number, lon: number) =>
     request<any>(`/api/weather?lat=${lat}&lon=${lon}`),
 };

@@ -1,24 +1,30 @@
-import fs from 'fs';
-import path from 'path';
+import * as admin from 'firebase-admin';
+import * as path from 'path';
+import crypto from 'crypto';
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
-const VITALS_FILE = path.join(DATA_DIR, 'vitals.json');
-const FALLS_FILE = path.join(DATA_DIR, 'falls.json');
-const ATTENDANCE_FILE = path.join(DATA_DIR, 'attendance.json');
-const TASKS_FILE = path.join(DATA_DIR, 'tasks.json');
-const ALERTS_FILE = path.join(DATA_DIR, 'alerts.json');
+// ── Firebase Admin Initialization ───────────────────────────────────────────────
+const serviceAccount = require(path.join(__dirname, '../serviceAccountKey.json'));
 
-// Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
 }
 
+const firestore = admin.firestore();
+
+// ── Interfaces ───────────────────────────────────────────────────────────────────
 export interface User {
   id: string;
   username: string;
   name: string;
-  role: 'worker' | 'supervisor';
+  role: 'worker' | 'supervisor' | 'admin';
+  passwordHash: string;
+  deviceToken: string;
+}
+
+export function hashPassword(password: string): string {
+  return crypto.createHash('sha256').update(password).digest('hex');
 }
 
 export interface VitalReading {
@@ -26,6 +32,7 @@ export interface VitalReading {
   bpm: number;
   spo2: number;
   timestamp: number;
+  source?: 'ble' | 'gsm';
 }
 
 export interface FallEvent {
@@ -63,206 +70,190 @@ export interface EmergencyAlert {
   resolvedAt?: number;
 }
 
+// ── Database Class (Firestore-backed) ────────────────────────────────────────────
 class Database {
-  private users: User[] = [];
-  private vitals: VitalReading[] = [];
-  private falls: FallEvent[] = [];
-  private attendance: AttendanceRecord[] = [];
-  private tasks: Task[] = [];
-  private alerts: EmergencyAlert[] = [];
+  private db = firestore;
 
-  constructor() {
-    this.loadData();
-    this.seedUsers();
-    this.seedTasks();
-  }
-
-  private loadData() {
+  // ── Seeding ────────────────────────────────────────────────────────────────────
+  async seedIfNeeded(): Promise<void> {
     try {
-      if (fs.existsSync(USERS_FILE)) this.users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-      if (fs.existsSync(VITALS_FILE)) this.vitals = JSON.parse(fs.readFileSync(VITALS_FILE, 'utf8'));
-      if (fs.existsSync(FALLS_FILE)) this.falls = JSON.parse(fs.readFileSync(FALLS_FILE, 'utf8'));
-      if (fs.existsSync(ATTENDANCE_FILE)) this.attendance = JSON.parse(fs.readFileSync(ATTENDANCE_FILE, 'utf8'));
-      if (fs.existsSync(TASKS_FILE)) this.tasks = JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8'));
-      if (fs.existsSync(ALERTS_FILE)) this.alerts = JSON.parse(fs.readFileSync(ALERTS_FILE, 'utf8'));
-    } catch (error) {
-      console.error('Error loading database files:', error);
+      // Seed supervisor account if it doesn't exist
+      const supervisorSnap = await this.db.collection('users')
+        .where('username', '==', 'supervisor1')
+        .limit(1)
+        .get();
+
+      if (supervisorSnap.empty) {
+        console.log('[DB] Seeding supervisor account...');
+        const supervisor: User = {
+          id: 'supervisor1',
+          username: 'supervisor1',
+          name: 'Bob Jones',
+          role: 'supervisor',
+          passwordHash: hashPassword('supervisor1'),
+          deviceToken: 'device_token_supervisor1_xyz',
+        };
+        await this.db.collection('users').doc(supervisor.id).set(supervisor);
+        console.log('[DB] Supervisor account created in Firestore.');
+      }
+    } catch (err) {
+      console.error('[DB] Seed error:', err);
     }
   }
 
-  private saveData(file: string, data: any) {
-    try {
-      fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
-    } catch (error) {
-      console.error(`Error saving database file ${file}:`, error);
-    }
+  // ── Users ──────────────────────────────────────────────────────────────────────
+  async getUsers(): Promise<User[]> {
+    const snap = await this.db.collection('users').get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as User));
   }
 
-  private seedUsers() {
-    if (this.users.length === 0) {
-      this.users = [
-        { id: 'worker1', username: 'worker1', name: 'John Doe', role: 'worker' },
-        { id: 'worker2', username: 'worker2', name: 'Alice Smith', role: 'worker' },
-        { id: 'supervisor1', username: 'supervisor1', name: 'Bob Jones', role: 'supervisor' }
-      ];
-      this.saveData(USERS_FILE, this.users);
-    }
+  async getUserById(id: string): Promise<User | undefined> {
+    const doc = await this.db.collection('users').doc(id).get();
+    if (!doc.exists) return undefined;
+    return { id: doc.id, ...doc.data() } as User;
   }
 
-  private seedTasks() {
-    if (this.tasks.length === 0) {
-      const now = Date.now();
-      this.tasks = [
-        {
-          id: 'task1',
-          userId: 'worker1',
-          title: 'Inspect North Facade Anchors',
-          status: 'pending',
-          assignedBy: 'supervisor1',
-          timestamp: now - 3600000
-        },
-        {
-          id: 'task2',
-          userId: 'worker1',
-          title: 'Verify Lifeline Tension (Zone C)',
-          status: 'in_progress',
-          assignedBy: 'supervisor1',
-          timestamp: now - 1800000
-        },
-        {
-          id: 'task3',
-          userId: 'worker2',
-          title: 'Calibrate BMI160 Wearable Unit',
-          status: 'done',
-          assignedBy: 'supervisor1',
-          timestamp: now - 7200000
-        }
-      ];
-      this.saveData(TASKS_FILE, this.tasks);
-    }
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const snap = await this.db
+      .collection('users')
+      .where('username', '==', username.toLowerCase())
+      .limit(1)
+      .get();
+    if (snap.empty) return undefined;
+    const doc = snap.docs[0];
+    return { id: doc.id, ...doc.data() } as User;
   }
 
-  // Users
-  getUsers(): User[] {
-    return this.users;
+  async getUserByDeviceToken(token: string): Promise<User | undefined> {
+    const snap = await this.db
+      .collection('users')
+      .where('deviceToken', '==', token)
+      .limit(1)
+      .get();
+    if (snap.empty) return undefined;
+    const doc = snap.docs[0];
+    return { id: doc.id, ...doc.data() } as User;
   }
 
-  getUserById(id: string): User | undefined {
-    return this.users.find(u => u.id === id);
+  async addUser(user: User): Promise<User> {
+    await this.db.collection('users').doc(user.id).set(user);
+    return user;
   }
 
-  getUserByUsername(username: string): User | undefined {
-    return this.users.find(u => u.username.toLowerCase() === username.toLowerCase());
-  }
-
-  // Vitals
-  getVitals(userId: string, minutes: number = 30): VitalReading[] {
+  // ── Vitals ─────────────────────────────────────────────────────────────────────
+  async getVitals(userId: string, minutes: number = 30): Promise<VitalReading[]> {
     const cutoff = Date.now() - minutes * 60 * 1000;
-    return this.vitals.filter(v => v.userId === userId && v.timestamp >= cutoff);
+    const snap = await this.db
+      .collection('vitals')
+      .where('userId', '==', userId)
+      .where('timestamp', '>=', cutoff)
+      .orderBy('timestamp', 'asc')
+      .get();
+    return snap.docs.map(d => d.data() as VitalReading);
   }
 
-  getAllLatestVitals(): Record<string, VitalReading> {
+  async getAllLatestVitals(): Promise<Record<string, VitalReading>> {
+    const users = await this.getUsers();
     const latest: Record<string, VitalReading> = {};
-    for (const v of this.vitals) {
-      if (!latest[v.userId] || latest[v.userId].timestamp < v.timestamp) {
-        latest[v.userId] = v;
+    for (const user of users.filter(u => u.role === 'worker')) {
+      const snap = await this.db
+        .collection('vitals')
+        .where('userId', '==', user.id)
+        .orderBy('timestamp', 'desc')
+        .limit(1)
+        .get();
+      if (!snap.empty) {
+        latest[user.id] = snap.docs[0].data() as VitalReading;
       }
     }
     return latest;
   }
 
-  addVitalReading(reading: VitalReading) {
-    this.vitals.push(reading);
-    // Keep max 500 records per user to prevent bloat
-    const userReadings = this.vitals.filter(v => v.userId === reading.userId);
-    if (userReadings.length > 500) {
-      const sorted = [...userReadings].sort((a, b) => b.timestamp - a.timestamp);
-      const toRemove = sorted.slice(500);
-      this.vitals = this.vitals.filter(v => !toRemove.includes(v));
-    }
-    this.saveData(VITALS_FILE, this.vitals);
+  async addVitalReading(reading: VitalReading): Promise<void> {
+    await this.db.collection('vitals').add(reading);
   }
 
-  // Falls
-  getFalls(userId?: string): FallEvent[] {
+  // ── Falls ──────────────────────────────────────────────────────────────────────
+  async getFalls(userId?: string): Promise<FallEvent[]> {
+    let query: admin.firestore.Query = this.db.collection('falls').orderBy('timestamp', 'desc');
     if (userId) {
-      return this.falls.filter(f => f.userId === userId);
+      query = this.db.collection('falls').where('userId', '==', userId).orderBy('timestamp', 'desc');
     }
-    return this.falls;
+    const snap = await query.get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as FallEvent));
   }
 
-  addFallEvent(fall: FallEvent) {
-    this.falls.push(fall);
-    this.saveData(FALLS_FILE, this.falls);
+  async addFallEvent(fall: FallEvent): Promise<void> {
+    await this.db.collection('falls').doc(fall.id).set(fall);
   }
 
-  updateFallEventStatus(id: string, status: FallEvent['status']) {
-    const fall = this.falls.find(f => f.id === id);
-    if (fall) {
-      fall.status = status;
-      this.saveData(FALLS_FILE, this.falls);
-    }
-    return fall;
+  async updateFallEventStatus(id: string, status: FallEvent['status']): Promise<FallEvent | undefined> {
+    const ref = this.db.collection('falls').doc(id);
+    await ref.update({ status });
+    const doc = await ref.get();
+    if (!doc.exists) return undefined;
+    return { id: doc.id, ...doc.data() } as FallEvent;
   }
 
-  // Attendance
-  getAttendance(userId?: string): AttendanceRecord[] {
+  // ── Attendance ─────────────────────────────────────────────────────────────────
+  async getAttendance(userId?: string): Promise<AttendanceRecord[]> {
+    let query: admin.firestore.Query = this.db.collection('attendance').orderBy('timestamp', 'asc');
     if (userId) {
-      return this.attendance.filter(a => a.userId === userId);
+      query = this.db.collection('attendance').where('userId', '==', userId).orderBy('timestamp', 'asc');
     }
-    return this.attendance;
+    const snap = await query.get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord));
   }
 
-  addAttendanceRecord(record: AttendanceRecord) {
-    this.attendance.push(record);
-    this.saveData(ATTENDANCE_FILE, this.attendance);
+  async addAttendanceRecord(record: AttendanceRecord): Promise<void> {
+    await this.db.collection('attendance').doc(record.id).set(record);
   }
 
-  // Tasks
-  getTasks(userId?: string): Task[] {
+  // ── Tasks ──────────────────────────────────────────────────────────────────────
+  async getTasks(userId?: string): Promise<Task[]> {
+    let query: admin.firestore.Query = this.db.collection('tasks').orderBy('timestamp', 'asc');
     if (userId) {
-      return this.tasks.filter(t => t.userId === userId);
+      query = this.db.collection('tasks').where('userId', '==', userId).orderBy('timestamp', 'asc');
     }
-    return this.tasks;
+    const snap = await query.get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as Task));
   }
 
-  addTask(task: Task) {
-    this.tasks.push(task);
-    this.saveData(TASKS_FILE, this.tasks);
+  async addTask(task: Task): Promise<Task> {
+    await this.db.collection('tasks').doc(task.id).set(task);
     return task;
   }
 
-  updateTaskStatus(id: string, status: Task['status']) {
-    const task = this.tasks.find(t => t.id === id);
-    if (task) {
-      task.status = status;
-      this.saveData(TASKS_FILE, this.tasks);
-    }
-    return task;
+  async updateTaskStatus(id: string, status: Task['status']): Promise<Task | undefined> {
+    const ref = this.db.collection('tasks').doc(id);
+    await ref.update({ status });
+    const doc = await ref.get();
+    if (!doc.exists) return undefined;
+    return { id: doc.id, ...doc.data() } as Task;
   }
 
-  // Alerts
-  getAlerts(userId?: string): EmergencyAlert[] {
+  // ── Alerts ─────────────────────────────────────────────────────────────────────
+  async getAlerts(userId?: string): Promise<EmergencyAlert[]> {
+    let query: admin.firestore.Query = this.db.collection('alerts').orderBy('timestamp', 'desc');
     if (userId) {
-      return this.alerts.filter(a => a.userId === userId);
+      query = this.db.collection('alerts').where('userId', '==', userId).orderBy('timestamp', 'desc');
     }
-    return this.alerts.sort((a, b) => b.timestamp - a.timestamp);
+    const snap = await query.get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as EmergencyAlert));
   }
 
-  addAlert(alert: EmergencyAlert) {
-    this.alerts.push(alert);
-    this.saveData(ALERTS_FILE, this.alerts);
+  async addAlert(alert: EmergencyAlert): Promise<EmergencyAlert> {
+    await this.db.collection('alerts').doc(alert.id).set(alert);
     return alert;
   }
 
-  resolveAlert(id: string) {
-    const alert = this.alerts.find(a => a.id === id);
-    if (alert) {
-      alert.status = 'resolved';
-      alert.resolvedAt = Date.now();
-      this.saveData(ALERTS_FILE, this.alerts);
-    }
-    return alert;
+  async resolveAlert(id: string): Promise<EmergencyAlert | undefined> {
+    const ref = this.db.collection('alerts').doc(id);
+    const resolvedAt = Date.now();
+    await ref.update({ status: 'resolved', resolvedAt });
+    const doc = await ref.get();
+    if (!doc.exists) return undefined;
+    return { id: doc.id, ...doc.data() } as EmergencyAlert;
   }
 }
 

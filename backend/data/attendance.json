@@ -22,5 +22,21 @@
     "timestamp": 1782819598657,
     "latitude": 37.77717154570574,
     "longitude": -122.41982462309146
+  },
+  {
+    "id": "att_1782889001227",
+    "userId": "worker2",
+    "action": "clock_in",
+    "timestamp": 1782889001227,
+    "latitude": 37.77382967724627,
+    "longitude": -122.41806009721309
+  },
+  {
+    "id": "att_1782889002862",
+    "userId": "worker2",
+    "action": "clock_out",
+    "timestamp": 1782889002862,
+    "latitude": 37.77532794421068,
+    "longitude": -122.4213817004594
   }
 ]

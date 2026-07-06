@@ -51,5 +51,100 @@
     "status": "resolved",
     "timestamp": 1782819542044,
     "resolvedAt": 1782819672200
+  },
+  {
+    "id": "alert_1782888982729",
+    "userId": "worker2",
+    "type": "fall",
+    "status": "active",
+    "timestamp": 1782888982729
+  },
+  {
+    "id": "alert_1782888986984",
+    "userId": "worker2",
+    "type": "fall",
+    "status": "active",
+    "timestamp": 1782888986984
+  },
+  {
+    "id": "alert_1782888988232",
+    "userId": "worker2",
+    "type": "fall",
+    "status": "active",
+    "timestamp": 1782888988232
+  },
+  {
+    "id": "alert_1782888989111",
+    "userId": "worker2",
+    "type": "fall",
+    "status": "resolved",
+    "timestamp": 1782888989111,
+    "resolvedAt": 1782888990156
+  },
+  {
+    "id": "alert_1782889007410",
+    "userId": "worker2",
+    "type": "manual",
+    "status": "active",
+    "timestamp": 1782889007410
+  },
+  {
+    "id": "alert_1782889154931",
+    "userId": "worker2",
+    "type": "fall",
+    "status": "active",
+    "timestamp": 1782889154931
+  },
+  {
+    "id": "alert_1782889158802",
+    "userId": "worker2",
+    "type": "fall",
+    "status": "active",
+    "timestamp": 1782889158802
+  },
+  {
+    "id": "alert_1782889161513",
+    "userId": "worker2",
+    "type": "fall",
+    "status": "resolved",
+    "timestamp": 1782889161513,
+    "resolvedAt": 1782889163859
+  },
+  {
+    "id": "alert_1782889167913",
+    "userId": "worker2",
+    "type": "fall",
+    "status": "resolved",
+    "timestamp": 1782889167913,
+    "resolvedAt": 1782891055561
+  },
+  {
+    "id": "alert_1782891214596",
+    "userId": "worker2",
+    "type": "manual",
+    "status": "active",
+    "timestamp": 1782891214596
+  },
+  {
+    "id": "alert_1783138994111",
+    "userId": "worker1",
+    "type": "fall",
+    "status": "active",
+    "timestamp": 1783138994111
+  },
+  {
+    "id": "alert_1783138995888",
+    "userId": "worker1",
+    "type": "fall",
+    "status": "resolved",
+    "timestamp": 1783138995888,
+    "resolvedAt": 1783138997746
+  },
+  {
+    "id": "alert_1783139004074",
+    "userId": "worker1",
+    "type": "manual",
+    "status": "active",
+    "timestamp": 1783139004074
   }
 ]

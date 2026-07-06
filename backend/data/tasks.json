@@ -3,7 +3,7 @@
     "id": "task1",
     "userId": "worker1",
     "title": "Inspect North Facade Anchors",
-    "status": "in_progress",
+    "status": "done",
     "assignedBy": "supervisor1",
     "timestamp": 1782803902445
   },
@@ -19,7 +19,7 @@
     "id": "task3",
     "userId": "worker2",
     "title": "Calibrate BMI160 Wearable Unit",
-    "status": "done",
+    "status": "pending",
     "assignedBy": "supervisor1",
     "timestamp": 1782800302445
   },

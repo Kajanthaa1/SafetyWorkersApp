@@ -1,0 +1,74 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isAdminOrSupervisor() {
+      let role = getUserData().role;
+      return role == 'admin' || role == 'supervisor';
+    }
+
+    // 1. Users collection rules
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      // Allow users to create their own accounts (signup)
+      allow create: if isAuthenticated() && isOwner(userId);
+      // Only the user themselves or an admin can update profile details
+      allow update, delete: if isAuthenticated() && (isOwner(userId) || isAdminOrSupervisor());
+    }
+
+    // 2. Vitals collection rules
+    match /vitals/{document} {
+      // Authenticated workers can write their own vitals.
+      // Data format includes a `userId` field linking the vital record to the user.
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdminOrSupervisor());
+      
+      // Workers can read their own vitals; Admins/Supervisors can read all vitals.
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdminOrSupervisor());
+      
+      // Update and delete are generally disabled for raw health data audit trails, but admins can manage them
+      allow update, delete: if isAuthenticated() && isAdminOrSupervisor();
+    }
+
+    // 3. Attendance collection rules
+    match /attendance/{document} {
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdminOrSupervisor());
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdminOrSupervisor());
+      allow update, delete: if isAuthenticated() && isAdminOrSupervisor();
+    }
+
+    // 4. Tasks collection rules
+    match /tasks/{taskId} {
+      // Anyone authenticated can read tasks assigned to them, or all tasks if supervisor
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdminOrSupervisor());
+      
+      // Only supervisors/admins can assign or modify tasks
+      allow create, update, delete: if isAuthenticated() && isAdminOrSupervisor();
+      
+      // Workers are allowed to update the status of tasks assigned to them
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+    }
+
+    // 5. Alerts collection rules
+    match /alerts/{alertId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdminOrSupervisor());
+      // Workers can trigger alerts; Supervisors can also trigger alerts
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdminOrSupervisor());
+      // Workers can cancel/resolve their suspected alerts; Supervisors can resolve all alerts
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdminOrSupervisor());
+      allow delete: if isAuthenticated() && isAdminOrSupervisor();
+    }
+  }
+}

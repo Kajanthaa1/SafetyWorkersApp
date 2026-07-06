@@ -268,7 +268,7 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
           <View style={styles.workerGrid}>
             {workers.map(w => {
               const vitals = workerVitals[w.id];
-              const isOffline = !vitals || (Date.now() - vitals.lastUpdated) > 15000; // No updates in 15 seconds
+              const isOffline = !vitals || (Date.now() - vitals.lastUpdated) > 30000; // 30 seconds to account for GSM latency
 
               // Check if worker has an active fall alert in alerts list
               const hasActiveFall = activeAlerts.some(a => a.userId === w.id);
@@ -282,17 +282,17 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
                     </View>
                     <View style={[
                       GLOBAL_STYLES.badge,
-                      { backgroundColor: isOffline ? 'rgba(255,255,255,0.05)' : COLORS.successBg }
+                      { backgroundColor: isOffline ? 'rgba(255,255,255,0.05)' : (vitals?.source === 'gsm' ? COLORS.warningBg : COLORS.successBg) }
                     ]}>
                       <View style={[
                         styles.dot,
-                        { backgroundColor: isOffline ? COLORS.textMuted : COLORS.success }
+                        { backgroundColor: isOffline ? COLORS.textMuted : (vitals?.source === 'gsm' ? COLORS.warning : COLORS.success) }
                       ]} />
                       <Text style={[
                         GLOBAL_STYLES.badgeText,
-                        { color: isOffline ? COLORS.textMuted : COLORS.success }
+                        { color: isOffline ? COLORS.textMuted : (vitals?.source === 'gsm' ? COLORS.warning : COLORS.success) }
                       ]}>
-                        {isOffline ? 'Offline' : 'Live'}
+                        {isOffline ? 'Offline' : (vitals?.source === 'gsm' ? 'GSM Fallback' : 'Live (BLE)')}
                       </Text>
                     </View>
                   </View>
@@ -300,17 +300,23 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
                   {!vitals ? (
                     <Text style={styles.noDataText}>No readings received yet</Text>
                   ) : (
-                    <View style={styles.vitalsPanel}>
+                    <View style={[styles.vitalsPanel, isOffline && { opacity: 0.6 }]}>
+                      {isOffline && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8, backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 6, borderRadius: 6 }}>
+                          <Icon name="wifi-off" size={14} color={COLORS.danger} />
+                          <Text style={{ color: COLORS.danger, fontSize: 10, fontWeight: 'bold' }}>SIGNAL LOST (Stale Data)</Text>
+                        </View>
+                      )}
                       <View style={styles.vitalStat}>
-                        <Icon name="heart-pulse" size={16} color={getBpmColor(vitals.bpm)} />
-                        <Text style={[styles.vitalValText, { color: getBpmColor(vitals.bpm) }]}>
+                        <Icon name="heart-pulse" size={16} color={isOffline ? COLORS.textMuted : getBpmColor(vitals.bpm)} />
+                        <Text style={[styles.vitalValText, { color: isOffline ? COLORS.textMuted : getBpmColor(vitals.bpm) }]}>
                           {vitals.bpm} <Text style={styles.vitalUnit}>BPM</Text>
                         </Text>
                       </View>
 
                       <View style={styles.vitalStat}>
-                        <Icon name="lungs" size={16} color={getSpo2Color(vitals.spo2)} />
-                        <Text style={[styles.vitalValText, { color: getSpo2Color(vitals.spo2) }]}>
+                        <Icon name="lungs" size={16} color={isOffline ? COLORS.textMuted : getSpo2Color(vitals.spo2)} />
+                        <Text style={[styles.vitalValText, { color: isOffline ? COLORS.textMuted : getSpo2Color(vitals.spo2) }]}>
                           {vitals.spo2}% <Text style={styles.vitalUnit}>SpO2</Text>
                         </Text>
                       </View>
@@ -320,19 +326,21 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
                         <Text style={[
                           styles.movementStatVal,
                           {
-                            color: hasActiveFall 
-                              ? COLORS.danger 
-                              : vitals.bpm > 90 
-                                ? COLORS.success 
-                                : COLORS.warning
+                            color: isOffline 
+                              ? COLORS.textMuted 
+                              : (hasActiveFall 
+                                  ? COLORS.danger 
+                                  : vitals.bpm > 90 
+                                    ? COLORS.success 
+                                    : COLORS.warning)
                           }
                         ]}>
-                          {hasActiveFall ? 'FALL TRIGGERED' : vitals.bpm > 90 ? 'Active' : 'Still/Idle'}
+                          {isOffline ? 'Unknown (Offline)' : (hasActiveFall ? 'FALL TRIGGERED' : vitals.bpm > 90 ? 'Active' : 'Still/Idle')}
                         </Text>
                       </View>
 
-                      <Text style={styles.lastSyncText}>
-                        Sync: {new Date(vitals.lastUpdated).toLocaleTimeString()}
+                      <Text style={[styles.lastSyncText, isOffline && { color: COLORS.danger }]}>
+                        {isOffline ? 'Last Sync: ' : 'Sync: '}{new Date(vitals.lastUpdated).toLocaleTimeString()}
                       </Text>
                     </View>
                   )}

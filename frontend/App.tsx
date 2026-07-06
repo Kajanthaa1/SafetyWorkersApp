@@ -5,6 +5,7 @@ import { COLORS } from './src/styles/theme';
 import LoginScreen from './src/screens/LoginScreen';
 import WorkerHomeScreen from './src/screens/WorkerHomeScreen';
 import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
+import { api } from './src/services/api';
 
 // Error Boundary catches any render-time errors so the app never shows a blank page
 interface ErrorBoundaryState { hasError: boolean; error: string | null; }
@@ -41,7 +42,15 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
 export default function App() {
   const [user, setUser] = useState<any | null>(null);
 
-  const handleLogout = () => {
+  const handleLogout = async (coords?: { latitude: number; longitude: number }) => {
+    // Auto clock-out when worker logs out
+    if (user && user.role === 'worker') {
+      try {
+        await api.logout(user.id, coords?.latitude, coords?.longitude);
+      } catch (err) {
+        console.warn('[App] Logout API call failed (offline?):', err);
+      }
+    }
     setUser(null);
   };
 
@@ -55,7 +64,7 @@ export default function App() {
           ) : user.role === 'worker' ? (
             <WorkerHomeScreen user={user} onLogout={handleLogout} />
           ) : (
-            <AdminDashboardScreen user={user} onLogout={handleLogout} />
+            <AdminDashboardScreen user={user} onLogout={() => handleLogout()} />
           )}
         </View>
       </SafeAreaView>

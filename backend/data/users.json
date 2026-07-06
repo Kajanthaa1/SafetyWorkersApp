@@ -3,18 +3,24 @@
     "id": "worker1",
     "username": "worker1",
     "name": "John Doe",
-    "role": "worker"
+    "role": "worker",
+    "passwordHash": "34aa1081c5b63c28d0343512980e8df6c079c858172b7f5a5272b8e0605b90ad",
+    "deviceToken": "device_token_worker1_xyz"
   },
   {
     "id": "worker2",
     "username": "worker2",
     "name": "Alice Smith",
-    "role": "worker"
+    "role": "worker",
+    "passwordHash": "5257586a4579fd12221c855b9cacf4c5bba169e31d5ebde2acaa8d502e57dcbe",
+    "deviceToken": "device_token_worker2_abc"
   },
   {
     "id": "supervisor1",
     "username": "supervisor1",
     "name": "Bob Jones",
-    "role": "supervisor"
+    "role": "supervisor",
+    "passwordHash": "ed30ef03b041ebee6ec0c9bb65967e602fd5a75f67f069b825bad6a2e5d4841a",
+    "deviceToken": "device_token_supervisor1_xyz"
   }
 ]

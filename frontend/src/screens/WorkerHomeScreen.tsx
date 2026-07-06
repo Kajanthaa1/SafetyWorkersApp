@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -15,17 +15,32 @@ import { COLORS, GLOBAL_STYLES, TYPOGRAPHY } from '../styles/theme';
 import { api } from '../services/api';
 import { initSocket, emitVitalsPush, emitFallTrigger, emitFallCancel, disconnectSocket } from '../services/socket';
 import Icon from '../components/Icon';
+import {
+  connectToWearable,
+  disconnectWearable,
+  destroyBle,
+  triggerBuzzer,
+  BleStatus,
+} from '../services/bleService';
+import { useNetworkStatus } from '../services/networkStatus';
+import { offlineQueue } from '../services/offlineQueue';
+import * as Location from 'expo-location';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface WorkerHomeScreenProps {
   user: any;
-  onLogout: () => void;
+  onLogout: (coords?: { latitude: number; longitude: number }) => void;
 }
 
-type TabType = 'health' | 'fall' | 'tasks' | 'emergency' | 'weather';
+type TabType = 'dashboard' | 'health' | 'fall' | 'tasks' | 'emergency' | 'weather';
 
 export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenProps) {
   // Navigation Tabs state
-  const [activeTab, setActiveTab] = useState<TabType>('health');
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+
+  // Network & Queue State
+  const isOnline = useNetworkStatus();
+  const [offlineQueueSize, setOfflineQueueSize] = useState(0);
 
   // 1. Health Monitor State
   const [bpm, setBpm] = useState(76);
@@ -35,9 +50,13 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   const [consecutiveAbnormal, setConsecutiveAbnormal] = useState(0);
   const [healthStatus, setHealthStatus] = useState<'Normal' | 'Health Risk Alert'>('Normal');
   
-  // ESP32 simulation parameters
-  const [localSampleCadence, setLocalSampleCadence] = useState(5); // 5 seconds local sampling
-  const [cloudPushCadence, setCloudPushCadence] = useState(10); // 10 seconds DB push
+  // BLE Wearable State
+  const [bleStatus, setBleStatus] = useState<BleStatus>('idle');
+  const bleConnected = bleStatus === 'connected';
+
+  // ESP32 simulation parameters (used when BLE is not connected)
+  const [localSampleCadence] = useState(5); // 5 seconds local sampling
+  const [cloudPushCadence] = useState(10); // 10 seconds DB push
   const [lastPushTime, setLastPushTime] = useState<number>(Date.now());
   const [localBuffers, setLocalBuffers] = useState<{ bpm: number; spo2: number }[]>([]);
 
@@ -55,7 +74,9 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   const [clockedIn, setClockedIn] = useState(false);
   const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
-  const [gpsCoords, setGpsCoords] = useState({ latitude: 37.7749, longitude: -122.4194 });
+  const [gpsCoords, setGpsCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
 
   // 4. Alerts & Panel State
   const [connectionHealth, setConnectionHealth] = useState<'connected' | 'weak' | 'disconnected'>('connected');
@@ -78,35 +99,65 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   // Animation values
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // BLE push cadence ref (so BLE callbacks can access without stale closure)
+  const lastPushTimeRef = useRef<number>(Date.now());
+  const localBuffersRef = useRef<{ bpm: number; spo2: number }[]>([]);
+
   useEffect(() => {
-    // Initialize WebSockets
-    const socket = initSocket(user.id, user.role);
+    // Sync initial offline queue size
+    offlineQueue.getQueueSize().then(setOfflineQueueSize);
+  }, []);
 
-    // Socket listeners
-    socket.on('task_update', (data: any) => {
-      if (data.userId === user.id) {
-        loadTasks();
-      }
-    });
+  useEffect(() => {
+    if (isOnline) {
+      console.log('[WorkerHomeScreen] Network went ONLINE. Flushing offline queue...');
+      offlineQueue.flush((flushedItem) => {
+        setVitalsHistory(prev => [...prev.slice(-30), {
+          bpm: flushedItem.bpm,
+          spo2: flushedItem.spo2,
+          timestamp: flushedItem.timestamp
+        }]);
+        offlineQueue.getQueueSize().then(setOfflineQueueSize);
+      }).then(() => {
+        offlineQueue.getQueueSize().then(setOfflineQueueSize);
+      });
+    }
+  }, [isOnline]);
 
-    socket.on('vitals_update', (data: any) => {
-      if (data.userId === user.id) {
-        setConsecutiveAbnormal(data.consecutiveAbnormalCount);
-        if (data.consecutiveAbnormalCount >= 3) {
-          setHealthStatus('Health Risk Alert');
-        } else {
-          setHealthStatus('Normal');
+  useEffect(() => {
+    // Initialize WebSockets (only if online)
+    let socket: any = null;
+    if (isOnline) {
+      socket = initSocket(user.id, user.role);
+
+      // Socket listeners
+      socket.on('task_update', (data: any) => {
+        if (data.userId === user.id) {
+          loadTasks();
         }
-      }
-    });
+      });
 
-    // Load initial logs
+      socket.on('vitals_update', (data: any) => {
+        if (data.userId === user.id) {
+          setConsecutiveAbnormal(data.consecutiveAbnormalCount);
+          if (data.consecutiveAbnormalCount >= 3) {
+            setHealthStatus('Health Risk Alert');
+          } else {
+            setHealthStatus('Normal');
+          }
+        }
+      });
+    } else {
+      console.log('[WorkerHomeScreen] Running in offline mode. Sockets disabled.');
+    }
+
+    // Load initial logs (tries offline / fallback or handles gracefully)
     loadInitialData();
 
-    // Start ESP32 Local 5s Sampling & Cadence simulation
+    // Start simulated vitals (fallback while BLE not connected)
     startEsp32Simulation();
 
-    // Start MAX30102 PPG pulse wave simulation
+    // Start MAX30102 PPG pulse wave animation
     startPpgWaveformAnimation();
 
     // Pulses animation for SOS / alerts
@@ -118,19 +169,22 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     ).start();
 
     return () => {
-      disconnectSocket();
+      if (isOnline) {
+        disconnectSocket();
+      }
+      destroyBle();
       if (countdownInterval.current) clearInterval(countdownInterval.current);
       if (esp32SampleInterval.current) clearInterval(esp32SampleInterval.current);
       if (ppgAnimationInterval.current) clearInterval(ppgAnimationInterval.current);
     };
-  }, []);
+  }, [isOnline]);
 
   const loadInitialData = async () => {
     loadTasks();
     loadVitalsHistory();
     loadAttendanceHistory();
     loadAlertHistory();
-    loadWeather();
+    requestLocationAndLoad(); // Get real GPS and fetch live weather
   };
 
   const loadVitalsHistory = async () => {
@@ -181,15 +235,45 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     }
   };
 
-  const loadWeather = async () => {
+  const loadWeather = async (coords: { latitude: number; longitude: number }) => {
     setLoadingWeather(true);
     try {
-      const data = await api.fetchWeather(gpsCoords.latitude, gpsCoords.longitude);
+      const data = await api.fetchWeather(coords.latitude, coords.longitude);
       setWeather(data);
     } catch (err) {
-      console.error(err);
+      console.error('[Weather] Failed to fetch:', err);
     } finally {
       setLoadingWeather(false);
+    }
+  };
+
+  // Request GPS permission and get real device location
+  const requestLocationAndLoad = async () => {
+    setGpsLoading(true);
+    setGpsError(null);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setGpsError('Location permission denied. Using default coordinates.');
+        const fallback = { latitude: 0, longitude: 0 };
+        setGpsCoords(fallback);
+        loadWeather(fallback);
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      setGpsCoords(coords);
+      loadWeather(coords);
+    } catch (err) {
+      console.error('[Location] Error getting location:', err);
+      setGpsError('Could not get GPS location.');
+      const fallback = { latitude: 0, longitude: 0 };
+      setGpsCoords(fallback);
+      loadWeather(fallback);
+    } finally {
+      setGpsLoading(false);
     }
   };
 
@@ -216,22 +300,113 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     }, 150);
   };
 
-  // ESP32 simulation running every 5s locally
+  // ── BLE vitals handler (called from BLE characteristic callbacks) ─────────────
+  const handleBleVitalReading = useCallback(async (nextBpm: number, nextSpo2: number) => {
+    setBpm(nextBpm);
+    setSpo2(nextSpo2);
+
+    // Buffer readings for moving average before cloud push
+    localBuffersRef.current = [...localBuffersRef.current, { bpm: nextBpm, spo2: nextSpo2 }];
+
+    const now = Date.now();
+    const timeSinceLastPush = now - lastPushTimeRef.current;
+    const shouldPushImmediately = nextBpm < 60 || nextBpm > 140 || nextSpo2 < 92;
+
+    if (timeSinceLastPush >= cloudPushCadence * 1000 || shouldPushImmediately) {
+      const buf = localBuffersRef.current;
+      const avgBpm  = Math.round(buf.reduce((a, c) => a + c.bpm,  0) / buf.length);
+      const avgSpo2 = Math.round(buf.reduce((a, c) => a + c.spo2, 0) / buf.length);
+
+      lastPushTimeRef.current = now;
+      localBuffersRef.current = [];
+      setLastPushTime(now);
+
+      if (!isOnline) {
+        const queueSize = await offlineQueue.enqueue(user.id, avgBpm, avgSpo2);
+        setOfflineQueueSize(queueSize);
+        setVitalsHistory(prev => [...prev.slice(-30), { bpm: avgBpm, spo2: avgSpo2, timestamp: now }]);
+        return;
+      }
+
+      try {
+        const response = await api.submitVitals(user.id, avgBpm, avgSpo2, 'ble');
+        setVitalsHistory(prev => [...prev.slice(-30), { bpm: avgBpm, spo2: avgSpo2, timestamp: now }]);
+        if (response.triggeredAlert) {
+          setHealthStatus('Health Risk Alert');
+          loadAlertHistory();
+          // Also buzz the wearable to alert the worker!
+          triggerBuzzer(true);
+          setTimeout(() => triggerBuzzer(false), 3000);
+          Alert.alert('HEALTH WARNING', 'Sustained abnormal vital readings detected. Alert escalated to Supervisor.');
+        } else {
+          setHealthStatus(response.consecutiveAbnormalCount >= 3 ? 'Health Risk Alert' : 'Normal');
+        }
+      } catch (err) {
+        console.error('Failed to sync to database:', err);
+      }
+    }
+  }, [cloudPushCadence, user.id, isOnline]);
+
+  // ── Connect to BLE wearable ───────────────────────────────────────────────────
+  const handleConnectWearable = () => {
+    if (bleStatus === 'scanning' || bleStatus === 'connecting') return;
+
+    // Stop simulation while BLE is active
+    if (esp32SampleInterval.current) {
+      clearInterval(esp32SampleInterval.current);
+      esp32SampleInterval.current = null;
+    }
+
+    connectToWearable({
+      onStatusChange: (status) => {
+        setBleStatus(status);
+        if (status === 'disconnected' || status === 'error') {
+          // Re-start simulation fallback when BLE drops
+          if (!esp32SampleInterval.current) startEsp32Simulation();
+        }
+      },
+      onHeartRate: (bpm) => {
+        setBpm(bpm);
+        // Update PPG waveform to reflect real reading
+        setPpgPoints(prev => {
+          const next = [...prev.slice(1)];
+          const normalized = Math.min(40, Math.max(2, (bpm - 50) * 0.5));
+          next.push(normalized);
+          return next;
+        });
+        handleBleVitalReading(bpm, 0); // will be batched with SpO2 below
+      },
+      onSpO2: (spo2) => {
+        setSpo2(spo2);
+      },
+      onFall: (detected) => {
+        if (detected) {
+          handleSimulateFall('confirmed');
+        }
+      },
+    });
+  };
+
+  const handleDisconnectWearable = () => {
+    disconnectWearable();
+    setBleStatus('idle');
+    // Resume simulation
+    if (!esp32SampleInterval.current) startEsp32Simulation();
+  };
+
+  // ── Simulated ESP32 (fallback when BLE not connected) ────────────────────────
   const startEsp32Simulation = () => {
     esp32SampleInterval.current = setInterval(async () => {
       if (movementState === 'Fall Detected') return;
 
-      // Simulate ESP32 reading vitals
       let nextBpm = 75;
       let nextSpo2 = 98;
 
       if (anomalyMode === 'spike') {
-        // Single noisy sample: HR spikes to 148, SpO2 drops to 89% for one count, then reverts
         nextBpm = 148;
         nextSpo2 = 89;
-        setAnomalyMode('none'); // Revert immediately after one sample
+        setAnomalyMode('none');
       } else if (anomalyMode === 'sustained') {
-        // Sustained hypoxia
         nextBpm = 125;
         nextSpo2 = 88;
         anomalyCountRef.current += 1;
@@ -240,7 +415,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
           anomalyCountRef.current = 0;
         }
       } else {
-        // Normal fluctuations
         const base = movementState === 'Active' ? 86 : 70;
         const variance = Math.floor(Math.random() * 6) - 3;
         nextBpm = Math.min(Math.max(base + variance, 58), 138);
@@ -250,7 +424,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
       setBpm(nextBpm);
       setSpo2(nextSpo2);
 
-      // Add to local ESP32 buffer
       const newReading = { bpm: nextBpm, spo2: nextSpo2 };
       const updatedBuffers = [...localBuffers, newReading];
       setLocalBuffers(updatedBuffers);
@@ -259,35 +432,27 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
       const timeSinceLastPush = now - lastPushTime;
       const shouldPushImmediately = nextBpm < 60 || nextBpm > 140 || nextSpo2 < 92;
 
-      // Cadence Logic: sample every 5s, push to Firebase/Backend every 10s OR immediately on threshold breach
       if (timeSinceLastPush >= cloudPushCadence * 1000 || shouldPushImmediately) {
-        // Compute moving average filter over local buffer before pushing
-        const avgBpm = Math.round(updatedBuffers.reduce((acc, curr) => acc + curr.bpm, 0) / updatedBuffers.length);
+        const avgBpm  = Math.round(updatedBuffers.reduce((acc, curr) => acc + curr.bpm,  0) / updatedBuffers.length);
         const avgSpo2 = Math.round(updatedBuffers.reduce((acc, curr) => acc + curr.spo2, 0) / updatedBuffers.length);
 
         setLastPushTime(now);
-        setLocalBuffers([]); // clear local buffer
+        setLocalBuffers([]);
+
+        if (!isOnline) {
+          const queueSize = await offlineQueue.enqueue(user.id, avgBpm, avgSpo2);
+          setOfflineQueueSize(queueSize);
+          setVitalsHistory(prev => [...prev.slice(-30), { bpm: avgBpm, spo2: avgSpo2, timestamp: now }]);
+          return;
+        }
 
         try {
-          // Push to backend (acting as Firebase simulator)
-          const response = await api.submitVitals(user.id, avgBpm, avgSpo2);
-          
-          // Append to vitals history
-          setVitalsHistory(prev => [...prev.slice(-30), {
-            bpm: avgBpm,
-            spo2: avgSpo2,
-            timestamp: now
-          }]);
-
-          // Check if an alert was triggered
+          const response = await api.submitVitals(user.id, avgBpm, avgSpo2, 'ble');
+          setVitalsHistory(prev => [...prev.slice(-30), { bpm: avgBpm, spo2: avgSpo2, timestamp: now }]);
           if (response.triggeredAlert) {
             setHealthStatus('Health Risk Alert');
             loadAlertHistory();
-            Alert.alert(
-              'HEALTH WARNING',
-              'Sustained abnormal vital readings detected. Health Alert automatically escalated to Supervisor.',
-              [{ text: 'OK' }]
-            );
+            Alert.alert('HEALTH WARNING', 'Sustained abnormal vital readings detected. Alert escalated to Supervisor.', [{ text: 'OK' }]);
           } else {
             setHealthStatus(response.consecutiveAbnormalCount >= 3 ? 'Health Risk Alert' : 'Normal');
           }
@@ -310,8 +475,16 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     setLocalBuffers([]);
     setLastPushTime(Date.now());
 
+    if (!isOnline) {
+      const queueSize = await offlineQueue.enqueue(user.id, nextBpm, nextSpo2);
+      setOfflineQueueSize(queueSize);
+      setVitalsHistory(prev => [...prev, { bpm: nextBpm, spo2: nextSpo2, timestamp: Date.now() }]);
+      setLoadingVitals(false);
+      return;
+    }
+
     try {
-      const response = await api.submitVitals(user.id, nextBpm, nextSpo2);
+      const response = await api.submitVitals(user.id, nextBpm, nextSpo2, 'ble');
       setVitalsHistory(prev => [...prev, { bpm: nextBpm, spo2: nextSpo2, timestamp: Date.now() }]);
       setConsecutiveAbnormal(response.consecutiveAbnormalCount);
       setHealthStatus(response.consecutiveAbnormalCount >= 3 ? 'Health Risk Alert' : 'Normal');
@@ -488,27 +661,54 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   };
 
   return (
-    <View style={GLOBAL_STYLES.container}>
-      {/* Top Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.userName}>{user.name}</Text>
-          <View style={styles.roleContainer}>
-            <Icon name="hard-hat" size={14} color={COLORS.success} />
-            <Text style={styles.userRole}>Worker Interface</Text>
+    <LinearGradient
+      colors={activeTab === 'dashboard' ? ['#E3D5F2', '#C6D2F6'] : [COLORS.background, COLORS.background]}
+      style={GLOBAL_STYLES.container}
+    >
+      {/* Top Header (only show legacy header if NOT on dashboard) */}
+      {activeTab !== 'dashboard' && (
+        <View style={styles.header}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <TouchableOpacity onPress={() => setActiveTab('dashboard')} style={{ padding: 4 }}>
+              <Icon name="arrow-left" size={22} color={COLORS.text} />
+            </TouchableOpacity>
+            <View>
+              <Text style={styles.userName}>{user.name}</Text>
+              <View style={styles.roleContainer}>
+                <Icon name="hard-hat" size={14} color={COLORS.success} />
+                <Text style={styles.userRole}>Worker Interface</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.connectionBadge}
+              onPress={bleConnected ? handleDisconnectWearable : handleConnectWearable}
+            >
+              <Icon
+                name={bleConnected ? 'bluetooth-connect' : bleStatus === 'scanning' || bleStatus === 'connecting' ? 'bluetooth-settings' : 'bluetooth-off'}
+                size={16}
+                color={bleConnected ? COLORS.success : bleStatus === 'scanning' || bleStatus === 'connecting' ? COLORS.warning : COLORS.textMuted}
+              />
+              <Text style={[styles.connectionText, {
+                color: bleConnected ? COLORS.success : bleStatus === 'scanning' || bleStatus === 'connecting' ? COLORS.warning : COLORS.textMuted
+              }]}>
+                {bleConnected ? 'BT: Connected' : bleStatus === 'scanning' ? 'Scanning…' : bleStatus === 'connecting' ? 'Connecting…' : 'BT: Off'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
+      )}
 
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.connectionBadge}>
-            <Icon name="wifi" size={16} color={COLORS.success} />
-            <Text style={[styles.connectionText, { color: COLORS.success }]}>BT: Connected</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
-            <Icon name="logout" size={18} color={COLORS.textSecondary} />
-          </TouchableOpacity>
+      {!isOnline && (
+        <View style={styles.offlineBanner}>
+          <Icon name="wifi-off" size={16} color={COLORS.danger} style={{ marginRight: 6 }} />
+          <Text style={styles.offlineBannerText}>
+            No Signal! Vitals queuing locally ({offlineQueueSize} saved).
+          </Text>
         </View>
-      </View>
+      )}
 
       {/* Main Content Area switching depending on activeTab */}
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -527,9 +727,202 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
           </View>
         )}
 
+        {/* DASHBOARD TAB */}
+        {activeTab === 'dashboard' && (
+          <View style={styles.dashboardContainer}>
+            {/* Header */}
+            <View style={styles.dashHeader}>
+              <View>
+                <Text style={styles.dashWelcome}>Welcome Back</Text>
+                <Text style={styles.dashTitle}>SafetyWorker Feed</Text>
+              </View>
+              <View style={styles.dashAvatarContainer}>
+                <Icon name="account" size={36} color={COLORS.primary} />
+              </View>
+            </View>
+
+            {/* Search and Notif */}
+            <View style={styles.dashSearchRow}>
+              <TouchableOpacity style={styles.dashNotifBtn}>
+                <Icon name="bell-outline" size={24} color={COLORS.primary} />
+              </TouchableOpacity>
+              <View style={styles.dashSearchBox}>
+                <Icon name="magnify" size={22} color={COLORS.textMuted} />
+                <Text style={styles.dashSearchPlaceholder}>Search Here</Text>
+              </View>
+            </View>
+
+            {/* Quick Services */}
+            <Text style={styles.dashSectionTitle}>Quick Services</Text>
+            
+            <View style={styles.dashServicesGrid}>
+              <View style={styles.dashServicesRow}>
+                <TouchableOpacity style={styles.dashServiceItem} onPress={() => setActiveTab('health')}>
+                  <View style={styles.dashServiceSquare}>
+                    <Icon name="heart-pulse" size={42} color="#BE185D" />
+                  </View>
+                  <View style={styles.dashServicePill}>
+                    <Text style={[styles.dashServiceLabel, { color: '#4C1D95' }]}>Health{'\n'}Monitoring</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.dashServiceItem} onPress={() => setActiveTab('fall')}>
+                  <View style={styles.dashServiceSquare}>
+                    <Icon name="walk" size={42} color="#059669" />
+                  </View>
+                  <View style={styles.dashServicePill}>
+                    <Text style={[styles.dashServiceLabel, { color: '#4C1D95' }]}>Fall{'\n'}Detection</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.dashServiceItem} onPress={() => setActiveTab('emergency')}>
+                  <View style={styles.dashServiceSquare}>
+                    <Icon name="alert-octagon" size={42} color="#DC2626" />
+                  </View>
+                  <View style={styles.dashServicePill}>
+                    <Text style={[styles.dashServiceLabel, { color: '#4C1D95' }]}>SOS</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.dashServicesRow, { justifyContent: 'center', gap: 20 }]}>
+                <TouchableOpacity style={styles.dashServiceItem} onPress={() => setActiveTab('tasks')}>
+                  <View style={styles.dashServiceSquare}>
+                    <Icon name="clipboard-check-outline" size={42} color="#E11D48" />
+                  </View>
+                  <View style={styles.dashServicePill}>
+                    <Text style={[styles.dashServiceLabel, { color: '#4C1D95' }]}>Attendance{'\n'}& Tasks</Text>
+                  </View>
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={styles.dashServiceItem} onPress={() => setActiveTab('weather')}>
+                  <View style={styles.dashServiceSquare}>
+                    <Icon name="weather-partly-cloudy" size={42} color="#0284C7" />
+                  </View>
+                  <View style={styles.dashServicePill}>
+                    <Text style={[styles.dashServiceLabel, { color: '#4C1D95' }]}>Weather</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Posts */}
+            <View style={styles.dashPostsHeader}>
+              <Text style={styles.dashSectionTitle}>Posts</Text>
+              <TouchableOpacity><Text style={styles.dashSeeAll}>See All</Text></TouchableOpacity>
+            </View>
+
+            <View style={styles.dashPostCard}>
+              <View style={styles.dashPostCardHeader}>
+                <View style={styles.dashPostAvatar}>
+                  <Icon name="account" size={24} color="#FFF" />
+                </View>
+                <View style={styles.dashPostMeta}>
+                  <Text style={styles.dashPostAuthor}>Alex Rivera <Text style={styles.dashPostRole}>· Site Supervisor</Text></Text>
+                  <Text style={styles.dashPostSubtitle}>Official Update</Text>
+                </View>
+              </View>
+              <Text style={styles.dashPostContent} numberOfLines={2}>
+                Important Safety Alert: Always double-check your safety harness and anchor points before ascending the tower today due to high wind gusts.
+              </Text>
+            </View>
+            
+          </View>
+        )}
+
         {/* TAB 1: HEALTH MONITOR */}
         {activeTab === 'health' && (
           <View style={styles.tabContent}>
+
+            {/* ── BLE Wearable Connect Card ── */}
+            <View style={[GLOBAL_STYLES.glassCard, styles.card, styles.bleCard]}>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardTitleContainer}>
+                  <Icon name="bluetooth" size={22} color={bleConnected ? COLORS.success : COLORS.primaryLight} />
+                  <Text style={styles.cardTitle}>ESP32-S3 SafetyBand</Text>
+                </View>
+                <View style={[GLOBAL_STYLES.badge, {
+                  backgroundColor: bleConnected ? COLORS.successBg
+                    : bleStatus === 'scanning' || bleStatus === 'connecting' ? COLORS.warningBg
+                    : COLORS.surfaceLight,
+                }]}>
+                  <Text style={[GLOBAL_STYLES.badgeText, {
+                    marginLeft: 0,
+                    color: bleConnected ? COLORS.success
+                      : bleStatus === 'scanning' || bleStatus === 'connecting' ? COLORS.warning
+                      : COLORS.textMuted,
+                  }]}>
+                    {bleConnected ? '● Connected'
+                      : bleStatus === 'scanning' ? '◌ Scanning…'
+                      : bleStatus === 'connecting' ? '◌ Connecting…'
+                      : bleStatus === 'error' ? '✕ Error'
+                      : '○ Not Connected'}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.cardSubtitle}>
+                {bleConnected
+                  ? 'Receiving live MAX30102 (HR, SpO2) and BMI160 (fall) data from wearable.'
+                  : 'Connect to your ESP32-S3 wearable band to receive real sensor data. Make sure the device is powered on and Bluetooth is enabled on your phone.'}
+              </Text>
+
+              <View style={styles.bleButtonRow}>
+                {bleConnected ? (
+                  <TouchableOpacity style={[styles.bleBtn, styles.bleBtnDisconnect]} onPress={handleDisconnectWearable}>
+                    <Icon name="bluetooth-off" size={16} color={COLORS.danger} style={{ marginRight: 6 }} />
+                    <Text style={[styles.bleBtnText, { color: COLORS.danger }]}>Disconnect Wearable</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.bleBtn, styles.bleBtnConnect,
+                      (bleStatus === 'scanning' || bleStatus === 'connecting') && { opacity: 0.6 }]}
+                    onPress={handleConnectWearable}
+                    disabled={bleStatus === 'scanning' || bleStatus === 'connecting'}
+                  >
+                    {(bleStatus === 'scanning' || bleStatus === 'connecting') ? (
+                      <ActivityIndicator size="small" color={COLORS.text} style={{ marginRight: 8 }} />
+                    ) : (
+                      <Icon name="bluetooth-connect" size={16} color={COLORS.text} style={{ marginRight: 6 }} />
+                    )}
+                    <Text style={styles.bleBtnText}>
+                      {bleStatus === 'scanning' ? 'Scanning for SafetyBand…'
+                        : bleStatus === 'connecting' ? 'Connecting…'
+                        : 'Connect Wearable'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Sensor Pills */}
+              <View style={styles.sensorPillsRow}>
+                <View style={[styles.sensorPill, bleConnected && { borderColor: COLORS.danger }]}>
+                  <Icon name="heart-pulse" size={13} color={bleConnected ? COLORS.danger : COLORS.textMuted} />
+                  <Text style={[styles.sensorPillText, bleConnected && { color: COLORS.danger }]}>MAX30102 HR</Text>
+                </View>
+                <View style={[styles.sensorPill, bleConnected && { borderColor: COLORS.success }]}>
+                  <Icon name="percent" size={13} color={bleConnected ? COLORS.success : COLORS.textMuted} />
+                  <Text style={[styles.sensorPillText, bleConnected && { color: COLORS.success }]}>MAX30102 SpO2</Text>
+                </View>
+                <View style={[styles.sensorPill, bleConnected && { borderColor: COLORS.warning }]}>
+                  <Icon name="run" size={13} color={bleConnected ? COLORS.warning : COLORS.textMuted} />
+                  <Text style={[styles.sensorPillText, bleConnected && { color: COLORS.warning }]}>BMI160 IMU</Text>
+                </View>
+              </View>
+
+              {/* Data source indicator */}
+              <View style={styles.dataSourceRow}>
+                <Icon
+                  name={bleConnected ? 'chip' : 'monitor-shimmer'}
+                  size={12}
+                  color={COLORS.textMuted}
+                />
+                <Text style={styles.dataSourceText}>
+                  {bleConnected ? 'Source: Live BLE (ESP32-S3)' : 'Source: Simulated (BLE not connected)'}
+                </Text>
+              </View>
+            </View>
+
             {/* Vitals Summary Card */}
             <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
               <View style={styles.cardHeader}>
@@ -869,7 +1262,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                   </View>
                   <View style={styles.weatherCardCell}>
                     <Text style={styles.weatherCellLabel}>PRECIPITATION</Text>
-                    <Text style={styles.weatherCellVal}>{weather.precipitation}%</Text>
+                    <Text style={styles.weatherCellVal}>{weather.precipitation} mm</Text>
                   </View>
                 </View>
 
@@ -887,34 +1280,24 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         )}
       </ScrollView>
 
-      {/* BOTTOM NAVIGATION TAB BAR WITH 5 ICONS */}
-      <View style={styles.bottomTabBar}>
-        <TouchableOpacity style={[styles.tabItem, activeTab === 'health' && styles.tabItemActive]} onPress={() => setActiveTab('health')}>
-          <Icon name="heart-pulse" size={22} color={activeTab === 'health' ? COLORS.danger : COLORS.textSecondary} />
-          <Text style={[styles.tabLabel, activeTab === 'health' && styles.tabLabelActive]}>Health</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.tabItem, activeTab === 'fall' && styles.tabItemActive]} onPress={() => setActiveTab('fall')}>
-          <Icon name="walk" size={22} color={activeTab === 'fall' ? COLORS.success : COLORS.textSecondary} />
-          <Text style={[styles.tabLabel, activeTab === 'fall' && styles.tabLabelActive]}>Fall</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.tabItem, activeTab === 'tasks' && styles.tabItemActive]} onPress={() => setActiveTab('tasks')}>
-          <Icon name="format-list-checks" size={22} color={activeTab === 'tasks' ? COLORS.info : COLORS.textSecondary} />
-          <Text style={[styles.tabLabel, activeTab === 'tasks' && styles.tabLabelActive]}>Tasks</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.tabItem, activeTab === 'emergency' && styles.tabItemActive]} onPress={() => setActiveTab('emergency')}>
-          <Icon name="alert-octagon" size={22} color={activeTab === 'emergency' ? COLORS.danger : COLORS.textSecondary} />
-          <Text style={[styles.tabLabel, activeTab === 'emergency' && styles.tabLabelActive]}>SOS</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.tabItem, activeTab === 'weather' && styles.tabItemActive]} onPress={() => setActiveTab('weather')}>
-          <Icon name="weather-partly-cloudy" size={22} color={activeTab === 'weather' ? COLORS.warning : COLORS.textSecondary} />
-          <Text style={[styles.tabLabel, activeTab === 'weather' && styles.tabLabelActive]}>Weather</Text>
-        </TouchableOpacity>
+      {/* BOTTOM NAVIGATION TAB BAR WITH 4 ICONS (Dashboard style) */}
+      <View style={styles.dashBottomNav}>
+        <View style={styles.dashBottomNavContent}>
+          <TouchableOpacity style={styles.dashNavItem} onPress={() => setActiveTab('dashboard')}>
+            <Icon name="home" size={28} color={activeTab === 'dashboard' ? '#4C1D95' : '#7C3AED'} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.dashNavItem} onPress={() => setActiveTab('tasks')}>
+            <Icon name="history" size={28} color={activeTab === 'tasks' ? '#4C1D95' : '#7C3AED'} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.dashNavItem} onPress={() => setActiveTab('emergency')}>
+            <Icon name="plus" size={28} color="#7C3AED" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.dashNavItem} onPress={() => onLogout(gpsCoords ? gpsCoords : undefined)}>
+            <Icon name="account" size={28} color="#7C3AED" />
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -978,6 +1361,68 @@ const styles = StyleSheet.create({
   tabContent: {
     gap: 16,
   },
+  // ── BLE Wearable Card styles ────────────────────────────────────────────────
+  bleCard: {
+    borderWidth: 1,
+    borderColor: 'rgba(96, 165, 250, 0.2)',
+  },
+  bleButtonRow: {
+    marginBottom: 12,
+  },
+  bleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  bleBtnConnect: {
+    backgroundColor: COLORS.primary,
+  },
+  bleBtnDisconnect: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: COLORS.danger,
+  },
+  bleBtnText: {
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.sizes.sm,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+  },
+  sensorPillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+    flexWrap: 'wrap',
+  },
+  sensorPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surfaceLight,
+  },
+  sensorPillText: {
+    fontSize: TYPOGRAPHY.sizes.xs - 1,
+    color: COLORS.textMuted,
+    fontWeight: TYPOGRAPHY.weights.medium,
+  },
+  dataSourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  dataSourceText: {
+    fontSize: TYPOGRAPHY.sizes.xs - 1,
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
+  },
+  // ──────────────────────────────────────────────────────────────────────────────
   card: {
     marginBottom: 0,
   },
@@ -1573,4 +2018,209 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: TYPOGRAPHY.weights.bold,
   },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.dangerBg,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(239, 68, 68, 0.2)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  offlineBannerText: {
+    color: COLORS.danger,
+    fontSize: TYPOGRAPHY.sizes.sm,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+  },
+  
+  // ── DASHBOARD STYLES ────────────────────────────────────────────────────────
+  dashboardContainer: {
+    paddingHorizontal: 8,
+    paddingTop: 10,
+  },
+  dashHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  dashWelcome: {
+    color: '#6B21A8',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  dashTitle: {
+    color: '#4C1D95',
+    fontSize: 26,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  dashAvatarContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#4C1D95',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  dashSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 30,
+    gap: 12,
+  },
+  dashNotifBtn: {
+    width: 54,
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: '#E9D5FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dashSearchBox: {
+    flex: 1,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#F3E8FF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 10,
+  },
+  dashSearchPlaceholder: {
+    color: '#9CA3AF',
+    fontSize: 16,
+  },
+  dashSectionTitle: {
+    color: '#4C1D95',
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 16,
+  },
+  dashServicesGrid: {
+    marginBottom: 30,
+    gap: 20,
+  },
+  dashServicesRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  dashServiceItem: {
+    alignItems: 'center',
+    width: 100,
+  },
+  dashServiceSquare: {
+    width: 90,
+    height: 90,
+    borderRadius: 24,
+    backgroundColor: '#E0E7FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#4C1D95',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+    marginBottom: 10,
+  },
+  dashServicePill: {
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  dashServiceLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  dashPostsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  dashSeeAll: {
+    color: '#4C1D95',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  dashPostCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: '#4C1D95',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  dashPostCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  dashPostAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#4C1D95',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dashPostMeta: {
+    flex: 1,
+  },
+  dashPostAuthor: {
+    color: '#1F2937',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  dashPostRole: {
+    color: '#6B7280',
+    fontWeight: '400',
+  },
+  dashPostSubtitle: {
+    color: '#9CA3AF',
+    fontSize: 12,
+  },
+  dashPostContent: {
+    color: '#374151',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  dashBottomNav: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+    backgroundColor: 'transparent',
+    justifyContent: 'flex-end',
+  },
+  dashBottomNavContent: {
+    backgroundColor: '#FDFBFF',
+    height: 70,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingBottom: Platform.OS === 'ios' ? 20 : 0,
+    shadowColor: '#4C1D95',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  dashNavItem: {
+    padding: 10,
+  }
 });
