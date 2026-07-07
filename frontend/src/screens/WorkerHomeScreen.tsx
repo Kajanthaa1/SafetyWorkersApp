@@ -56,10 +56,13 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   const bleConnected = bleStatus === 'connected';
 
   // ESP32 simulation parameters (used when BLE is not connected)
-  const [localSampleCadence] = useState(5); // 5 seconds local sampling
-  const [cloudPushCadence] = useState(10); // 10 seconds DB push
+  const localSampleCadence = 5; // 5 seconds local sampling
+  const cloudPushCadence = 10; // 10 seconds DB push
   const [lastPushTime, setLastPushTime] = useState<number>(Date.now());
   const [localBuffers, setLocalBuffers] = useState<{ bpm: number; spo2: number }[]>([]);
+  // Refs mirror state so setInterval callbacks are never stale
+  const lastPushTimeRef2 = useRef<number>(Date.now());
+  const localBuffersRef2 = useRef<{ bpm: number; spo2: number }[]>([]);
 
   // PPG animation state (simulating MAX30102 live signal)
   const [ppgPoints, setPpgPoints] = useState<number[]>(new Array(30).fill(20));
@@ -97,6 +100,11 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   const countdownInterval = useRef<NodeJS.Timeout | null>(null);
   const esp32SampleInterval = useRef<NodeJS.Timeout | null>(null);
   const ppgAnimationInterval = useRef<NodeJS.Timeout | null>(null);
+  // Guard to prevent duplicate simulation start
+  const simulationStarted = useRef(false);
+  // PPG raw buffer — updated by interval, flushed to state every ~600ms to reduce renders
+  const ppgBufferRef = useRef<number[]>(new Array(30).fill(20));
+  const ppgFlushInterval = useRef<NodeJS.Timeout | null>(null);
 
   // Animation values
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -104,13 +112,12 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   // BLE push cadence ref (so BLE callbacks can access without stale closure)
   const lastPushTimeRef = useRef<number>(Date.now());
   const localBuffersRef = useRef<{ bpm: number; spo2: number }[]>([]);
+  // Track online status in a ref so interval callbacks can read it without stale closure
+  const isOnlineRef = useRef<boolean>(isOnline);
 
   useEffect(() => {
-    // Sync initial offline queue size
-    offlineQueue.getQueueSize().then(setOfflineQueueSize);
-  }, []);
-
-  useEffect(() => {
+    // Keep isOnlineRef in sync so interval callbacks always have the latest value
+    isOnlineRef.current = isOnline;
     if (isOnline) {
       console.log('[WorkerHomeScreen] Network went ONLINE. Flushing offline queue...');
       offlineQueue.flush((flushedItem) => {
@@ -153,16 +160,21 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
       console.log('[WorkerHomeScreen] Running in offline mode. Sockets disabled.');
     }
 
-    // Load initial logs (tries offline / fallback or handles gracefully)
+    return () => {
+      if (isOnline) {
+        disconnectSocket();
+      }
+    };
+  }, [isOnline]);
+
+  // Mount-only effect: load data and start timers once
+  useEffect(() => {
+    offlineQueue.getQueueSize().then(setOfflineQueueSize);
     loadInitialData();
-
-    // Start simulated vitals (fallback while BLE not connected)
     startEsp32Simulation();
-
-    // Start MAX30102 PPG pulse wave animation
     startPpgWaveformAnimation();
 
-    // Pulses animation for SOS / alerts
+    // Pulse animation for SOS / alerts
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.15, duration: 800, useNativeDriver: true }),
@@ -171,28 +183,27 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     ).start();
 
     return () => {
-      if (isOnline) {
-        disconnectSocket();
-      }
       destroyBle();
       if (countdownInterval.current) clearInterval(countdownInterval.current);
-      if (esp32SampleInterval.current) clearInterval(esp32SampleInterval.current);
-      if (ppgAnimationInterval.current) clearInterval(ppgAnimationInterval.current);
+      if (esp32SampleInterval.current) { clearInterval(esp32SampleInterval.current); esp32SampleInterval.current = null; }
+      if (ppgAnimationInterval.current) { clearInterval(ppgAnimationInterval.current); ppgAnimationInterval.current = null; }
+      if (ppgFlushInterval.current) { clearInterval(ppgFlushInterval.current); ppgFlushInterval.current = null; }
     };
-  }, [isOnline]);
+  }, []);
 
   const loadInitialData = async () => {
-    loadTasks();
-    loadVitalsHistory();
-    loadAttendanceHistory();
-    loadAlertHistory();
-    requestLocationAndLoad(); // Get real GPS and fetch live weather
+    // Load critical UI data first (fast DB reads)
+    await Promise.all([loadTasks(), loadAttendanceHistory()]);
+    // Defer heavier / network-dependent calls so dashboard renders fast
+    setTimeout(() => loadVitalsHistory(), 200);
+    setTimeout(() => loadAlertHistory(), 400);
+    setTimeout(() => requestLocationAndLoad(), 600); // GPS + weather last
   };
 
   const loadVitalsHistory = async () => {
     setLoadingVitals(true);
     try {
-      const data = await api.fetchVitals(user.id, 60); // fetch last 60 minutes
+      const data = await api.fetchVitals(user.id, 30); // fetch last 30 minutes (faster)
       setVitalsHistory(data);
       if (data.length > 0) {
         const latest = data[data.length - 1];
@@ -280,26 +291,25 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   };
 
   // MAX30102 Raw PPG waveform simulation
+  // Runs at 150ms internally but only flushes to React state every 600ms
+  // to reduce re-renders from 6/s → 1.6/s
   const startPpgWaveformAnimation = () => {
     const wavePattern = [15, 12, 10, 8, 12, 28, 35, 12, 14, 16, 18, 17, 16, 15, 15, 14, 15, 14, 15, 16, 15, 14, 15, 16, 15, 14, 13, 14, 15, 16];
-    
+
+    // Inner timer: advance raw buffer quickly (no React state)
     ppgAnimationInterval.current = setInterval(() => {
-      setPpgPoints(prev => {
-        const nextWave = [...prev.slice(1)];
-        // Get next point in circular pattern
-        const point = wavePattern[ppgIndex.current % wavePattern.length];
-        
-        // Add random motion noise if worker is active
-        const noise = movementState === 'Active' ? (Math.random() * 4 - 2) : 0;
-        
-        // If low pass filter is active, we average it
-        const filteredPoint = Math.max(2, point + noise);
-        
-        nextWave.push(filteredPoint);
-        ppgIndex.current += 1;
-        return nextWave;
-      });
+      const buf = ppgBufferRef.current;
+      const point = wavePattern[ppgIndex.current % wavePattern.length];
+      const noise = Math.random() * 4 - 2;
+      const filteredPoint = Math.max(2, point + noise);
+      ppgBufferRef.current = [...buf.slice(1), filteredPoint];
+      ppgIndex.current += 1;
     }, 150);
+
+    // Flush buffer to React state at a lower rate to avoid excessive renders
+    ppgFlushInterval.current = setInterval(() => {
+      setPpgPoints([...ppgBufferRef.current]);
+    }, 600);
   };
 
   // ── BLE vitals handler (called from BLE characteristic callbacks) ─────────────
@@ -397,27 +407,32 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   };
 
   // ── Simulated ESP32 (fallback when BLE not connected) ────────────────────────
+  // Uses refs for lastPushTime and localBuffers to avoid stale closures in setInterval
   const startEsp32Simulation = () => {
-    esp32SampleInterval.current = setInterval(async () => {
-      if (movementState === 'Fall Detected') return;
+    if (esp32SampleInterval.current) return; // guard against duplicate starts
 
+    const anomalyModeRef = { current: anomalyMode };
+
+    esp32SampleInterval.current = setInterval(async () => {
       let nextBpm = 75;
       let nextSpo2 = 98;
 
-      if (anomalyMode === 'spike') {
+      if (anomalyModeRef.current === 'spike') {
         nextBpm = 148;
         nextSpo2 = 89;
+        anomalyModeRef.current = 'none';
         setAnomalyMode('none');
-      } else if (anomalyMode === 'sustained') {
+      } else if (anomalyModeRef.current === 'sustained') {
         nextBpm = 125;
         nextSpo2 = 88;
         anomalyCountRef.current += 1;
         if (anomalyCountRef.current >= 4) {
+          anomalyModeRef.current = 'none';
           setAnomalyMode('none');
           anomalyCountRef.current = 0;
         }
       } else {
-        const base = movementState === 'Active' ? 86 : 70;
+        const base = 86;
         const variance = Math.floor(Math.random() * 6) - 3;
         nextBpm = Math.min(Math.max(base + variance, 58), 138);
         nextSpo2 = Math.random() > 0.98 ? 96 : 98;
@@ -426,22 +441,26 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
       setBpm(nextBpm);
       setSpo2(nextSpo2);
 
+      // Use refs to avoid stale closure — no React state reads inside interval
       const newReading = { bpm: nextBpm, spo2: nextSpo2 };
-      const updatedBuffers = [...localBuffers, newReading];
-      setLocalBuffers(updatedBuffers);
+      localBuffersRef2.current = [...localBuffersRef2.current, newReading];
 
       const now = Date.now();
-      const timeSinceLastPush = now - lastPushTime;
+      const timeSinceLastPush = now - lastPushTimeRef2.current;
       const shouldPushImmediately = nextBpm < 60 || nextBpm > 140 || nextSpo2 < 92;
 
       if (timeSinceLastPush >= cloudPushCadence * 1000 || shouldPushImmediately) {
-        const avgBpm  = Math.round(updatedBuffers.reduce((acc, curr) => acc + curr.bpm,  0) / updatedBuffers.length);
-        const avgSpo2 = Math.round(updatedBuffers.reduce((acc, curr) => acc + curr.spo2, 0) / updatedBuffers.length);
+        const buf = localBuffersRef2.current;
+        const avgBpm  = Math.round(buf.reduce((acc, c) => acc + c.bpm,  0) / buf.length);
+        const avgSpo2 = Math.round(buf.reduce((acc, c) => acc + c.spo2, 0) / buf.length);
 
+        lastPushTimeRef2.current = now;
+        localBuffersRef2.current = [];
         setLastPushTime(now);
         setLocalBuffers([]);
 
-        if (!isOnline) {
+        const isCurrentlyOnline = isOnlineRef.current;
+        if (!isCurrentlyOnline) {
           const queueSize = await offlineQueue.enqueue(user.id, avgBpm, avgSpo2);
           setOfflineQueueSize(queueSize);
           setVitalsHistory(prev => [...prev.slice(-30), { bpm: avgBpm, spo2: avgSpo2, timestamp: now }]);
