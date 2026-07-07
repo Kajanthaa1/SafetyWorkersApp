@@ -10,6 +10,7 @@ import {
   Animated,
   Platform,
   Dimensions,
+  TextInput,
 } from 'react-native';
 import { COLORS, GLOBAL_STYLES, TYPOGRAPHY } from '../styles/theme';
 import { api } from '../services/api';
@@ -86,6 +87,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   // 5. Weather State
   const [weather, setWeather] = useState<any>(null);
   const [loadingWeather, setLoadingWeather] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Simulation parameters for testing vitals spikes
   const [anomalyMode, setAnomalyMode] = useState<'none' | 'spike' | 'sustained'>('none');
@@ -197,8 +199,8 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         setBpm(latest.bpm);
         setSpo2(latest.spo2);
       }
-    } catch (err) {
-      console.error('Error fetching vitals:', err);
+    } catch (err: any) {
+      console.log('[Info] Error fetching vitals:', err?.message);
     } finally {
       setLoadingVitals(false);
     }
@@ -208,8 +210,8 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     try {
       const data = await api.fetchTasks(user.id);
       setTasks(data);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.log('[Info] Failed to fetch tasks:', err?.message);
     }
   };
 
@@ -221,8 +223,8 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         const lastAction = data[data.length - 1].action;
         setClockedIn(lastAction === 'clock_in');
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.log('[Info] Failed to fetch attendance:', err?.message);
     }
   };
 
@@ -230,8 +232,8 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     try {
       const data = await api.fetchAlerts(user.id);
       setAlertHistory(data);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.log('[Info] Failed to fetch alerts:', err?.message);
     }
   };
 
@@ -489,7 +491,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
       setConsecutiveAbnormal(response.consecutiveAbnormalCount);
       setHealthStatus(response.consecutiveAbnormalCount >= 3 ? 'Health Risk Alert' : 'Normal');
       loadAlertHistory();
-      loadWeather();
+      if (gpsCoords) loadWeather(gpsCoords);
     } catch (err) {
       console.error(err);
     } finally {
@@ -747,8 +749,14 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                 <Icon name="bell-outline" size={24} color={COLORS.primary} />
               </TouchableOpacity>
               <View style={styles.dashSearchBox}>
-                <Icon name="magnify" size={22} color={COLORS.textMuted} />
-                <Text style={styles.dashSearchPlaceholder}>Search Here</Text>
+                <Icon name="magnify" size={20} color={COLORS.textTertiary} />
+                <TextInput
+                  style={styles.dashSearchInput}
+                  placeholder="Search Tasks..."
+                  placeholderTextColor={COLORS.textTertiary}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
               </View>
             </View>
 
@@ -1145,7 +1153,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
 
               <View style={styles.gpsPanel}>
                 <Icon name="map-marker" size={16} color={COLORS.textSecondary} />
-                <Text style={styles.gpsText}>GPS Coordinates: {gpsCoords.latitude.toFixed(4)}, {gpsCoords.longitude.toFixed(4)}</Text>
+                <Text style={styles.gpsText}>GPS Coordinates: {gpsCoords ? gpsCoords.latitude.toFixed(4) : '--'}, {gpsCoords ? gpsCoords.longitude.toFixed(4) : '--'}</Text>
               </View>
 
               <Text style={styles.sectionSubHeader}>Supervisor Assigned Tasks</Text>
@@ -1153,7 +1161,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                 {tasks.length === 0 ? (
                   <Text style={styles.emptyText}>No tasks assigned for today.</Text>
                 ) : (
-                  tasks.map(task => (
+                  tasks.filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase())).map(task => (
                     <TouchableOpacity 
                       key={task.id} 
                       style={[styles.taskRow, task.status === 'done' && styles.taskRowDone]}
@@ -1243,6 +1251,9 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                   <View style={styles.cardTitleContainer}>
                     <Icon name="weather-partly-cloudy" size={22} color={COLORS.warning} />
                     <Text style={styles.cardTitle}>Site Weather Conditions</Text>
+                    {weather.locationName && (
+                      <Text style={{ fontSize: 13, color: COLORS.textSecondary, marginLeft: 28, marginTop: -4 }}>{weather.locationName}</Text>
+                    )}
                   </View>
                   <View style={[GLOBAL_STYLES.badge, { backgroundColor: weather.safeToWork ? COLORS.successBg : COLORS.dangerBg }]}>
                     <Text style={[GLOBAL_STYLES.badgeText, { color: weather.safeToWork ? COLORS.success : COLORS.danger, marginLeft: 0 }]}>
@@ -2093,9 +2104,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     gap: 10,
   },
-  dashSearchPlaceholder: {
-    color: '#9CA3AF',
+  dashSearchInput: {
+    color: COLORS.text,
     fontSize: 16,
+    flex: 1,
+    height: '100%',
   },
   dashSectionTitle: {
     color: '#4C1D95',

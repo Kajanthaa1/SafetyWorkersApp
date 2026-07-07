@@ -510,6 +510,7 @@ router.get('/weather', async (req: Request, res: Response) => {
     }
 
     return res.json({
+      locationName: weatherData.name || 'Unknown Location',
       coordinates: { lat, lon },
       temperature: tempC,
       windSpeed: windKnots,
