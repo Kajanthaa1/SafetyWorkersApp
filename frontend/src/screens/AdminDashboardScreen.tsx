@@ -472,28 +472,6 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
       </ScrollView>
     </View>
   );
-
-  return (
-    <View style={GLOBAL_STYLES.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.adminName}>{user.name}</Text>
-          <View style={styles.roleContainer}>
-            <Icon name="shield-crown" size={14} color={COLORS.primaryLight} />
-            <Text style={styles.adminRole}>Safety Supervisor</Text>
-          </View>
-        </View>
-
-        <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
-          <Icon name="logout" size={20} color={COLORS.textSecondary} />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {renderSupervisorContent()}
-      </ScrollView>
-    </View>
-  );
 }
 
 const styles = StyleSheet.create({

@@ -44,7 +44,7 @@ bool gyroValid = false;
 bool fallDetected = false;
 
 // ==================== Network Function ====================
-void sendDataToApp(int bpm, int oxygen, bool fallFlag) {
+void sendDataToApp(int bpm, int oxygen, float gyroX, float gyroY, float gyroZ, bool fallFlag) {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
     
@@ -67,18 +67,22 @@ void sendDataToApp(int bpm, int oxygen, bool fallFlag) {
       }
       http.end();
     } else {
-      // Send Vitals to Backend
-      Serial.println(F("Sending standard vitals update..."));
+      // Send Vitals + Gyroscope Data to Backend & Firebase
+      Serial.println(F("Sending standard vitals & gyro update..."));
       http.begin(serverVitalsEndpoint);
       http.addHeader("Content-Type", "application/json");
       http.addHeader("x-device-token", deviceToken);
 
-      // Construct JSON payload
-      String jsonPayload = "{\"bpm\":" + String(bpm) + ",\"spo2\":" + String(oxygen) + "}";
+      // Construct JSON payload with BPM, SpO2, and Gyro (X, Y, Z)
+      String jsonPayload = "{\"bpm\":" + String(bpm) + 
+                           ",\"spo2\":" + String(oxygen) + 
+                           ",\"gx\":" + String(gyroX, 2) + 
+                           ",\"gy\":" + String(gyroY, 2) + 
+                           ",\"gz\":" + String(gyroZ, 2) + "}";
       int httpResponseCode = http.POST(jsonPayload);
       
       if (httpResponseCode > 0) {
-        Serial.print(F("HTTP Vitals Sent. Code: "));
+        Serial.print(F("HTTP Vitals & Gyro Sent. Code: "));
         Serial.println(httpResponseCode);
       } else {
         Serial.print(F("Error sending vitals. Code: "));
@@ -171,7 +175,7 @@ void loop() {
       Serial.println(F("🚨 FALL DETECTED! 🚨"));
       fallDetected = true;
       // Immediately send emergency data to server
-      sendDataToApp(latestBPM, latestSpO2, true); 
+      sendDataToApp(latestBPM, latestSpO2, gx, gy, gz, true); 
       delay(2000); // Debounce to prevent multiple rapid alerts
       fallDetected = false; 
     }
@@ -218,9 +222,9 @@ void loop() {
         latestSpO2 = 0;
       }
 
-      // Send standard vitals update to app every read cycle
+      // Send standard vitals & gyro update to app every read cycle
       if (hasValidData && latestBPM > 0 && latestSpO2 > 0) {
-         sendDataToApp(latestBPM, latestSpO2, fallDetected);
+         sendDataToApp(latestBPM, latestSpO2, gx, gy, gz, fallDetected);
       }
     }
   }

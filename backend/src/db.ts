@@ -79,6 +79,9 @@ export interface VitalReading {
   userId: string;
   bpm: number;
   spo2: number;
+  gx?: number;
+  gy?: number;
+  gz?: number;
   timestamp: number;
   source?: 'ble' | 'gsm';
 }

@@ -44,15 +44,29 @@ function fetchOpenWeatherMap(lat: number, lon: number): Promise<any> {
 const consecutiveAbnormalCounts: Record<string, number> = {};
 
 // ── Vitals processing (shared by BLE & GSM routes) ────────────────────────────
-async function processVitalReading(user: User, bpm: number, spo2: number, source: 'ble' | 'gsm') {
+async function processVitalReading(
+  user: User,
+  bpm: number,
+  spo2: number,
+  gx?: number,
+  gy?: number,
+  gz?: number,
+  source: 'ble' | 'gsm' = 'ble'
+) {
   const parsedBpm = Number(bpm);
   const parsedSpo2 = Number(spo2);
+  const parsedGx = gx !== undefined ? Number(gx) : 0;
+  const parsedGy = gy !== undefined ? Number(gy) : 0;
+  const parsedGz = gz !== undefined ? Number(gz) : 0;
   const userId = user.id;
 
   const reading = {
     userId,
     bpm: parsedBpm,
     spo2: parsedSpo2,
+    gx: parsedGx,
+    gy: parsedGy,
+    gz: parsedGz,
     timestamp: Date.now(),
     source,
   };
@@ -239,14 +253,14 @@ router.get('/vitals/:userId', async (req: Request, res: Response) => {
 
 router.post('/vitals', async (req: Request, res: Response) => {
   try {
-    const { userId, bpm, spo2, source } = req.body;
+    const { userId, bpm, spo2, gx, gy, gz, source } = req.body;
     if (!userId || bpm === undefined || spo2 === undefined) {
       return res.status(400).json({ error: 'userId, bpm, and spo2 are required' });
     }
     const user = await db.getUserById(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const result = await processVitalReading(user, bpm, spo2, source || 'ble');
+    const result = await processVitalReading(user, bpm, spo2, gx, gy, gz, source || 'ble');
     return res.status(201).json(result);
   } catch (err) {
     return res.status(500).json({ error: 'Failed to submit vitals' });
@@ -261,12 +275,12 @@ router.post('/device/vitals', async (req: Request, res: Response) => {
     const user = await getDeviceUser(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized: Invalid Device Token' });
 
-    const { bpm, spo2 } = req.body;
+    const { bpm, spo2, gx, gy, gz } = req.body;
     if (bpm === undefined || spo2 === undefined) {
       return res.status(400).json({ error: 'bpm and spo2 are required' });
     }
-    console.log(`[GSM] Vitals from ${user.name}: BPM=${bpm}, SpO2=${spo2}%`);
-    const result = await processVitalReading(user, bpm, spo2, 'gsm');
+    console.log(`[Device] Vitals from ${user.name}: BPM=${bpm}, SpO2=${spo2}%, Gyro=(${gx || 0}, ${gy || 0}, ${gz || 0})`);
+    const result = await processVitalReading(user, bpm, spo2, gx, gy, gz, 'gsm');
     return res.status(201).json(result);
   } catch (err) {
     return res.status(500).json({ error: 'Failed to process device vitals' });
