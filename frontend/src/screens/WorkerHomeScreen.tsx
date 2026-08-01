@@ -768,11 +768,11 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                 <Icon name="bell-outline" size={24} color={COLORS.primary} />
               </TouchableOpacity>
               <View style={styles.dashSearchBox}>
-                <Icon name="magnify" size={20} color={COLORS.textTertiary} />
+                <Icon name="magnify" size={20} color={COLORS.textMuted} />
                 <TextInput
                   style={styles.dashSearchInput}
                   placeholder="Search Tasks..."
-                  placeholderTextColor={COLORS.textTertiary}
+                  placeholderTextColor={COLORS.textMuted}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                 />
@@ -1060,40 +1060,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                 <TouchableOpacity style={[styles.simActionBtn, { borderColor: COLORS.danger }]} onPress={triggerSustainedCritical}>
                   <Text style={[styles.simActionBtnText, { color: COLORS.danger }]}>Simulate 3x Sustained</Text>
                 </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Signal Processing / Key Technical Details */}
-            <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
-              <Text style={styles.sectionHeader}>Key Technical Implementation</Text>
-              <View style={styles.techBullet}>
-                <Icon name="filter" size={16} color={COLORS.primaryLight} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.techBulletTitle}>Signal Filtering (Motion Artifact Mitigation)</Text>
-                  <Text style={styles.techBulletDesc}>
-                    ESP32 firmware applies a moving-average low-pass filter (window width = 8 samples) to raw IR and Red values before computing BPM, smoothing out high-frequency noise and jolt artifacts.
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.techBullet}>
-                <Icon name="heart-flash" size={16} color={COLORS.danger} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.techBulletTitle}>PPG Heart Rate Peak Detection</Text>
-                  <Text style={styles.techBulletDesc}>
-                    Raw IR photoplethysmogram waveforms are processed in real-time. Peak detection isolates systolic crests on the filtered signal, computing the instantaneous BPM using the intervals between peaks.
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.techBullet}>
-                <Icon name="percent" size={16} color={COLORS.success} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.techBulletTitle}>SpO2 Ratio-of-Ratios Algorithm</Text>
-                  <Text style={styles.techBulletDesc}>
-                    {"Computes oxygen saturation by calculating the ratio of AC and DC components from Red and IR signals: \\(R = \\frac{AC_{red}/DC_{red}}{AC_{ir}/DC_{ir}}\\). Matches it to the standard MAX30102 regression curve."}
-                  </Text>
-                </View>
               </View>
             </View>
 

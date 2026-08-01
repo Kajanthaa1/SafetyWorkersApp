@@ -13,7 +13,6 @@ import {
 import { COLORS, GLOBAL_STYLES, TYPOGRAPHY } from '../styles/theme';
 import { api } from '../services/api';
 import Icon from '../components/Icon';
-import * as Location from 'expo-location';
 
 interface LoginScreenProps {
   onLoginSuccess: (user: any) => void;
@@ -42,23 +41,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [suSuccess, setSuSuccess] = useState(false);
   const [suRole, setSuRole] = useState<'worker' | 'admin'>('worker');
 
-  // Pre-fetch location so it's ready for auth clock-in
-  const [gpsCoords, setGpsCoords] = useState<{ latitude: number, longitude: number } | null>(null);
-
-  React.useEffect(() => {
-    const requestLocation = async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-      
-      let location = await Location.getLastKnownPositionAsync({});
-      if (!location) {
-        location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      }
-      setGpsCoords({ latitude: location.coords.latitude, longitude: location.coords.longitude });
-    };
-    requestLocation();
-  }, []);
-
   // ── Sign In ──────────────────────────────────────────────────────────────────
   const handleSignIn = async () => {
     if (!siUsername.trim()) { setSiError('Username is required'); return; }
@@ -67,7 +49,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     setSiLoading(true);
     setSiError(null);
     try {
-      const user = await api.login(siUsername.trim(), siPassword, gpsCoords?.latitude, gpsCoords?.longitude);
+      const user = await api.login(siUsername.trim(), siPassword, 0, 0);
       onLoginSuccess(user);
     } catch (err: any) {
       setSiError(err.message || 'Login failed. Check your credentials.');
@@ -89,7 +71,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       await api.signup(suName.trim(), suUsername.trim(), suPassword, suRole);
       setSuSuccess(true);
       // Auto sign-in after successful signup
-      const user = await api.login(suUsername.trim(), suPassword, gpsCoords?.latitude, gpsCoords?.longitude);
+      const user = await api.login(suUsername.trim(), suPassword, 0, 0);
       onLoginSuccess(user);
     } catch (err: any) {
       setSuError(err.message || 'Signup failed. Please try again.');

@@ -19,8 +19,9 @@
     "id": "alert_1782819740666",
     "userId": "worker1",
     "type": "fall",
-    "status": "active",
-    "timestamp": 1782819740666
+    "status": "resolved",
+    "timestamp": 1782819740666,
+    "resolvedAt": 1783492730454
   },
   {
     "id": "alert_1782819738348",
@@ -41,8 +42,9 @@
     "id": "alert_1782819546160",
     "userId": "worker1",
     "type": "fall",
-    "status": "active",
-    "timestamp": 1782819546160
+    "status": "resolved",
+    "timestamp": 1782819546160,
+    "resolvedAt": 1783492733098
   },
   {
     "id": "alert_1782819542044",
@@ -63,8 +65,9 @@
     "id": "alert_1782888986984",
     "userId": "worker2",
     "type": "fall",
-    "status": "active",
-    "timestamp": 1782888986984
+    "status": "resolved",
+    "timestamp": 1782888986984,
+    "resolvedAt": 1783492727677
   },
   {
     "id": "alert_1782888988232",
@@ -85,8 +88,9 @@
     "id": "alert_1782889007410",
     "userId": "worker2",
     "type": "manual",
-    "status": "active",
-    "timestamp": 1782889007410
+    "status": "resolved",
+    "timestamp": 1782889007410,
+    "resolvedAt": 1783492724597
   },
   {
     "id": "alert_1782889154931",
@@ -99,8 +103,9 @@
     "id": "alert_1782889158802",
     "userId": "worker2",
     "type": "fall",
-    "status": "active",
-    "timestamp": 1782889158802
+    "status": "resolved",
+    "timestamp": 1782889158802,
+    "resolvedAt": 1783492722546
   },
   {
     "id": "alert_1782889161513",
@@ -122,8 +127,9 @@
     "id": "alert_1782891214596",
     "userId": "worker2",
     "type": "manual",
-    "status": "active",
-    "timestamp": 1782891214596
+    "status": "resolved",
+    "timestamp": 1782891214596,
+    "resolvedAt": 1783492719334
   },
   {
     "id": "alert_1783138994111",
@@ -144,7 +150,37 @@
     "id": "alert_1783139004074",
     "userId": "worker1",
     "type": "manual",
+    "status": "resolved",
+    "timestamp": 1783139004074,
+    "resolvedAt": 1783492716900
+  },
+  {
+    "id": "alert_1783492582439",
+    "userId": "worker_1783492529675",
+    "type": "fall",
     "status": "active",
-    "timestamp": 1783139004074
+    "timestamp": 1783492582439
+  },
+  {
+    "id": "alert_1783492585380",
+    "userId": "worker_1783492529675",
+    "type": "fall",
+    "status": "resolved",
+    "timestamp": 1783492585380,
+    "resolvedAt": 1783492587277
+  },
+  {
+    "id": "alert_1783492594051",
+    "userId": "worker_1783492529675",
+    "type": "manual",
+    "status": "active",
+    "timestamp": 1783492594051
+  },
+  {
+    "id": "alert_1785572011560",
+    "userId": "worker_1785571713464",
+    "type": "manual",
+    "status": "active",
+    "timestamp": 1785572011560
   }
 ]

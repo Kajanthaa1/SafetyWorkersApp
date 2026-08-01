@@ -1018,5 +1018,2455 @@
     "bpm": 85,
     "spo2": 98,
     "timestamp": 1782891227781
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497439565,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1783497449544,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783497459446,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783497469530,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497479545,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497489521,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783497499540,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783497509531,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783497519672,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497529600,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 97,
+    "timestamp": 1783497539607,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783497549615,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497560342,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497569670,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783497580748,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783497589810,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783497599740,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783497609732,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783497619800,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1783497629803,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497639816,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783497649914,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497659943,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497669891,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783497679924,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1783497689914,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783497699983,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783497709936,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497719943,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497730072,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497740026,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497750023,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783497760089,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783497770047,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 97,
+    "timestamp": 1783497780109,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783497790105,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783497800130,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1783497810112,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783497820292,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497830193,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783497840214,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783497850346,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783497860272,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783497870320,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 97,
+    "timestamp": 1783497885325,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497895301,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783497905331,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497915387,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783497925413,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783497935427,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783497945427,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783497955632,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783497965444,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497975538,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497985517,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783497995538,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498005513,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783498015600,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783498025528,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783498052302,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783498062320,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498072310,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498082317,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783498092439,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783498102431,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783498112391,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498122398,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498132419,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498142567,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498152489,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783498162524,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783498172539,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1783498182574,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783498362634,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783498377595,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783498387622,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783498397619,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783498407608,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498417640,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498427743,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783498437721,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783498452710,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498462770,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783498477719,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498487727,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783498502751,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 97,
+    "timestamp": 1783498512731,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783498522845,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783498534449,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498542803,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783498552810,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498562828,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783498572863,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783498582930,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783498592906,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783498602883,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783498612902,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783498627893,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783498637892,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498652920,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783498662966,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783498850881,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783498865892,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498875879,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498885867,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783498895889,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783498905884,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498915886,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783498925898,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783498935909,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783498945940,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498955980,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783498972339,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783498981009,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 97,
+    "timestamp": 1783498995998,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499006148,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499021003,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783499031006,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499041013,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 97,
+    "timestamp": 1783499051089,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783499061100,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 97,
+    "timestamp": 1783499071085,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 97,
+    "timestamp": 1783499081088,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499091101,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499101115,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499111117,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499121219,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499131225,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499141243,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499151206,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499161276,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783499171204,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 97,
+    "timestamp": 1783499181210,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783499191221,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783499201235,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499211251,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 97,
+    "timestamp": 1783499221303,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783499231272,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783499246269,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499256291,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783499271312,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499281339,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499296336,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499306404,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499321388,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499331453,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499346398,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783499356450,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783499366412,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 97,
+    "timestamp": 1783499376432,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1783499386431,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783499396455,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783499406479,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499416486,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783499426557,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499436494,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499446523,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499456533,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783499468311,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499478315,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499488360,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499498336,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783499508352,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499518365,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783499528391,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 97,
+    "timestamp": 1783499538371,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783499548410,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499563486,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499573488,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499588461,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499598497,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499608508,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499618502,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783499628503,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783499638527,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499648516,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499658520,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499668530,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783499678595,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499693599,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499703585,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499713596,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499723616,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783499733603,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499743633,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499753706,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783499763640,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783499773723,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499783681,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499793659,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499803696,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499813818,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499823775,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499833742,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783499843834,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499853725,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783499863740,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783499873741,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499883766,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783499893786,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499903789,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783499913810,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1783499923836,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499933842,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499943869,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783499953914,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783499963890,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783499973902,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783499983900,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 97,
+    "timestamp": 1783499993941,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500003913,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783500013965,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783500028913,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500038946,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500048994,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1783500058993,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783500069002,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500078999,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783500089035,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 97,
+    "timestamp": 1783500104035,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500114032,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783500124061,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500134049,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500144070,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500154105,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500164141,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783500179111,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500189114,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783500199145,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783500209146,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500219194,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500229176,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 97,
+    "timestamp": 1783500239203,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783500249216,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500259232,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500269236,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783500279227,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500289277,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783500299264,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500309291,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783500319303,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500329333,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500339333,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500349335,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500359357,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500369374,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783500379372,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500389394,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500399403,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783500409416,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783500419431,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500429435,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500439451,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783500449478,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783500459490,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500469496,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500479494,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500489513,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500499541,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783500514600,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500524570,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500534577,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500544603,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500554631,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500564617,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500574698,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500589692,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783500599731,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500614666,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783500624687,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500634699,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500644711,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783500654713,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783500664707,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500674752,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500689720,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500699742,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500709745,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500719753,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1783500729765,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1783500739766,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783500749768,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500759784,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783500769802,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783500779808,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500789802,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500799815,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783500809825,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500819806,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1783500829820,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500839856,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1783500849943,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783500859917,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1783500874861,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500884884,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500894899,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500904946,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 98,
+    "timestamp": 1783500914884,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 88,
+    "spo2": 97,
+    "timestamp": 1783500924903,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500934913,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500944926,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783500954940,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783500964960,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500974969,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783500985010,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783500995104,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783501004984,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1783501015057,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783501025008,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783501034997,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783501045036,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783501055030,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783501065038,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783501075070,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1783501085156,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783501095066,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1783501105087,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1783501115100,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1783492529675",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1783501125116,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1785571723688,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1785571733705,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1785571743727,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1785571758752,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 84,
+    "spo2": 97,
+    "timestamp": 1785571768811,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1785571778780,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1785571788744,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 87,
+    "spo2": 97,
+    "timestamp": 1785571798760,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1785571808785,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1785571818819,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1785571832369,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 83,
+    "spo2": 98,
+    "timestamp": 1785571842429,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1785571857459,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1785571867454,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1785571877485,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1785571887524,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1785571897553,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1785571907522,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1785571917539,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1785571927572,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1785571937598,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 85,
+    "spo2": 97,
+    "timestamp": 1785571947612,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1785571957600,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1785571967623,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 86,
+    "spo2": 98,
+    "timestamp": 1785571977650,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1785571987627,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 87,
+    "spo2": 98,
+    "timestamp": 1785571997639,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 84,
+    "spo2": 98,
+    "timestamp": 1785572007643,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1785572017652,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1785572027690,
+    "source": "ble"
+  },
+  {
+    "userId": "worker_1785571713464",
+    "bpm": 85,
+    "spo2": 98,
+    "timestamp": 1785572037712,
+    "source": "ble"
   }
 ]

@@ -38,5 +38,69 @@
     "timestamp": 1782889002862,
     "latitude": 37.77532794421068,
     "longitude": -122.4213817004594
+  },
+  {
+    "id": "att_1783492529720",
+    "userId": "worker_1783492529675",
+    "action": "clock_in",
+    "timestamp": 1783492529720,
+    "latitude": 6.8234406,
+    "longitude": 79.9660027
+  },
+  {
+    "id": "att_1783492602384",
+    "userId": "worker_1783492529675",
+    "action": "clock_out",
+    "timestamp": 1783492602384,
+    "latitude": 37.776701874707705,
+    "longitude": -122.41875021600003
+  },
+  {
+    "id": "att_1783492607059",
+    "userId": "worker_1783492529675",
+    "action": "clock_in",
+    "timestamp": 1783492607060,
+    "latitude": 37.77715217678038,
+    "longitude": -122.41902109806107
+  },
+  {
+    "id": "att_1783492759853",
+    "userId": "worker_1783492529675",
+    "action": "clock_in",
+    "timestamp": 1783492759853,
+    "latitude": 6.8234396,
+    "longitude": 79.9659945
+  },
+  {
+    "id": "att_1783497429123",
+    "userId": "worker_1783492529675",
+    "action": "clock_in",
+    "timestamp": 1783497429123,
+    "latitude": 6.823386,
+    "longitude": 79.9663109
+  },
+  {
+    "id": "att_1783501003795",
+    "userId": "worker_1783492529675",
+    "action": "clock_out",
+    "timestamp": 1783501003795,
+    "latitude": 37.77283322245671,
+    "longitude": -122.41907505438924
+  },
+  {
+    "id": "att_1783501004549",
+    "userId": "worker_1783492529675",
+    "action": "clock_in",
+    "timestamp": 1783501004549,
+    "latitude": 37.775318693028716,
+    "longitude": -122.4176262023323
+  },
+  {
+    "id": "att_1785571713516",
+    "userId": "worker_1785571713464",
+    "action": "clock_in",
+    "timestamp": 1785571713516,
+    "latitude": 0,
+    "longitude": 0
   }
 ]

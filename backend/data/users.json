@@ -22,5 +22,37 @@
     "role": "supervisor",
     "passwordHash": "ed30ef03b041ebee6ec0c9bb65967e602fd5a75f67f069b825bad6a2e5d4841a",
     "deviceToken": "device_token_supervisor1_xyz"
+  },
+  {
+    "id": "worker_1783492529675",
+    "username": "santhya",
+    "name": "Santhya",
+    "role": "worker",
+    "passwordHash": "44926fc5f64c4ae4d82809d2ebb28c81793c14b34860b567a61742ed33e1c3bf",
+    "deviceToken": "device_1783492529676_cqqq5r8kodi"
+  },
+  {
+    "id": "admin_1783492673969",
+    "username": "sanoo",
+    "name": "Sanoo",
+    "role": "admin",
+    "passwordHash": "feaceb41ee26b44100e95a9e7bc5a634841fe12f1413ba3725e0ee59125e98de",
+    "deviceToken": "device_1783492673969_2sa0mgn2k76"
+  },
+  {
+    "id": "worker_1785571713464",
+    "username": "disa",
+    "name": "Disa",
+    "role": "worker",
+    "passwordHash": "cc46d752897b5e3c6ac0af26bac28d7a19188548af1cbc806a25689b9d380fa3",
+    "deviceToken": "device_1785571713465_bb21yil454m"
+  },
+  {
+    "id": "admin_1785572310242",
+    "username": "kaadu",
+    "name": "Kaadu",
+    "role": "admin",
+    "passwordHash": "9b84b0001e3dc1eda54e7d755ed9167cca598cf6d08803f2f0b91cd9cbaf67a4",
+    "deviceToken": "device_1785572310242_q8qtc4elbi8"
   }
 ]

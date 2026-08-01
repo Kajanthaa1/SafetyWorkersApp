@@ -38,5 +38,13 @@
     "status": "pending",
     "assignedBy": "Bob Jones",
     "timestamp": 1782819796177
+  },
+  {
+    "id": "task_1783492700948",
+    "userId": "worker2",
+    "title": "Craft cutting",
+    "status": "pending",
+    "assignedBy": "Sanoo",
+    "timestamp": 1783492700948
   }
 ]

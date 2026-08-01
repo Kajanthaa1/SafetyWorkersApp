@@ -472,6 +472,28 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
       </ScrollView>
     </View>
   );
+
+  return (
+    <View style={GLOBAL_STYLES.container}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.adminName}>{user.name}</Text>
+          <View style={styles.roleContainer}>
+            <Icon name="shield-crown" size={14} color={COLORS.primaryLight} />
+            <Text style={styles.adminRole}>Safety Supervisor</Text>
+          </View>
+        </View>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
+          <Icon name="logout" size={20} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {renderSupervisorContent()}
+      </ScrollView>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -479,6 +501,52 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 16,
     paddingBottom: 40,
+  },
+  dashboardShell: {
+    gap: 16,
+  },
+  dashboardTitle: {
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    marginBottom: 4,
+  },
+  supervisorHomeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  supervisorServiceItem: {
+    width: '48%',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    minHeight: 150,
+    justifyContent: 'center',
+  },
+  supervisorServiceSquare: {
+    width: '100%',
+    minHeight: 94,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  supervisorServiceLabel: {
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.sizes.sm,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  backToDashboardText: {
+    color: COLORS.primaryLight,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    fontWeight: TYPOGRAPHY.weights.bold,
   },
   header: {
     flexDirection: 'row',
