@@ -904,5 +904,82 @@
     "type": "health",
     "status": "resolved",
     "timestamp": 1787300637346
+  },
+  {
+    "id": "alert_1787301003568",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1787301003568
+  },
+  {
+    "id": "alert_1787301145291",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1787301145291
+  },
+  {
+    "id": "alert_1787301153198",
+    "userId": "worker_1787293120194",
+    "type": "fall",
+    "status": "active",
+    "timestamp": 1787301153198
+  },
+  {
+    "id": "alert_1787301160817",
+    "userId": "worker_1787293120194",
+    "type": "manual",
+    "status": "active",
+    "timestamp": 1787301160817
+  },
+  {
+    "id": "alert_1787301161103",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1787301161103
+  },
+  {
+    "id": "alert_1787301169759",
+    "userId": "worker_1787293120194",
+    "type": "manual",
+    "status": "active",
+    "timestamp": 1787301169759
+  },
+  {
+    "id": "alert_1787301173880",
+    "userId": "worker_1787293120194",
+    "type": "fall",
+    "status": "active",
+    "timestamp": 1787301173880
+  },
+  {
+    "id": "alert_1787301176757",
+    "userId": "worker_1787293120194",
+    "type": "fall",
+    "status": "active",
+    "timestamp": 1787301176757
+  },
+  {
+    "id": "alert_1787301179165",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1787301179165
+  },
+  {
+    "id": "alert_1787301189138",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1787301189138
+  },
+  {
+    "id": "alert_1787301205607",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1787301205607
   }
 ]

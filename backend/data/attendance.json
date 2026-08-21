@@ -238,5 +238,13 @@
     "timestamp": 1787299677267,
     "latitude": 0,
     "longitude": 0
+  },
+  {
+    "id": "att_1787301130931",
+    "userId": "worker_1787293120194",
+    "action": "clock_in",
+    "timestamp": 1787301130931,
+    "latitude": 0,
+    "longitude": 0
   }
 ]
