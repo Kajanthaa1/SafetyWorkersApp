@@ -321,6 +321,8 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
                         </Text>
                       </View>
 
+
+
                       <View style={styles.movementStatRow}>
                         <Text style={styles.movementStatLabel}>IMU State:</Text>
                         <Text style={[

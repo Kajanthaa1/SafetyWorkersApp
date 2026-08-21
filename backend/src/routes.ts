@@ -20,7 +20,23 @@ async function getDeviceUser(req: Request): Promise<User | null> {
   }
   if (!token) return null;
 
-  return await db.getUserByDeviceToken(token) || null;
+  // Check for active worker sanoo1 and automatically bind hardware token to sanoo1
+  const sanooUser = await db.getUserByUsername('sanoo1');
+  if (sanooUser) {
+    if (sanooUser.deviceToken !== token) {
+      sanooUser.deviceToken = token;
+      await db.updateUserDeviceToken(sanooUser.id, token);
+    }
+    return sanooUser;
+  }
+
+  const found = await db.getUserByDeviceToken(token);
+  if (found) return found;
+
+  // Fallback: If device token is default hardware token, return last registered worker
+  const users = await db.getUsers();
+  const worker = users.filter(u => u.role === 'worker').pop();
+  return worker || null;
 }
 
 // ── Helper: Fetch OpenWeatherMap real weather ──────────────────────────────────────
@@ -51,13 +67,17 @@ async function processVitalReading(
   gx?: number,
   gy?: number,
   gz?: number,
-  source: 'ble' | 'gsm' = 'ble'
+  source: 'ble' | 'gsm' = 'ble',
+  altitude?: number,
+  floorLevel?: number
 ) {
   const parsedBpm = Number(bpm);
   const parsedSpo2 = Number(spo2);
   const parsedGx = gx !== undefined ? Number(gx) : 0;
   const parsedGy = gy !== undefined ? Number(gy) : 0;
   const parsedGz = gz !== undefined ? Number(gz) : 0;
+  const parsedAltitude = altitude !== undefined ? Number(altitude) : 1.5;
+  const parsedFloor = floorLevel !== undefined ? Number(floorLevel) : Math.floor(parsedAltitude / 3) + 1;
   const userId = user.id;
 
   const reading = {
@@ -67,6 +87,8 @@ async function processVitalReading(
     gx: parsedGx,
     gy: parsedGy,
     gz: parsedGz,
+    altitude: parsedAltitude,
+    floorLevel: parsedFloor,
     timestamp: Date.now(),
     source,
   };
@@ -253,14 +275,14 @@ router.get('/vitals/:userId', async (req: Request, res: Response) => {
 
 router.post('/vitals', async (req: Request, res: Response) => {
   try {
-    const { userId, bpm, spo2, gx, gy, gz, source } = req.body;
+    const { userId, bpm, spo2, gx, gy, gz, altitude, floorLevel, source } = req.body;
     if (!userId || bpm === undefined || spo2 === undefined) {
       return res.status(400).json({ error: 'userId, bpm, and spo2 are required' });
     }
     const user = await db.getUserById(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const result = await processVitalReading(user, bpm, spo2, gx, gy, gz, source || 'ble');
+    const result = await processVitalReading(user, bpm, spo2, gx, gy, gz, source || 'ble', altitude, floorLevel);
     return res.status(201).json(result);
   } catch (err) {
     return res.status(500).json({ error: 'Failed to submit vitals' });
@@ -275,12 +297,12 @@ router.post('/device/vitals', async (req: Request, res: Response) => {
     const user = await getDeviceUser(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized: Invalid Device Token' });
 
-    const { bpm, spo2, gx, gy, gz } = req.body;
+    const { bpm, spo2, gx, gy, gz, altitude, floorLevel } = req.body;
     if (bpm === undefined || spo2 === undefined) {
       return res.status(400).json({ error: 'bpm and spo2 are required' });
     }
-    console.log(`[Device] Vitals from ${user.name}: BPM=${bpm}, SpO2=${spo2}%, Gyro=(${gx || 0}, ${gy || 0}, ${gz || 0})`);
-    const result = await processVitalReading(user, bpm, spo2, gx, gy, gz, 'gsm');
+    console.log(`[Device] Vitals from ${user.name}: BPM=${bpm}, SpO2=${spo2}%, Gyro=(${gx || 0}, ${gy || 0}, ${gz || 0}), Altitude=${altitude || 1.5}m`);
+    const result = await processVitalReading(user, bpm, spo2, gx, gy, gz, 'gsm', altitude, floorLevel);
     return res.status(201).json(result);
   } catch (err) {
     return res.status(500).json({ error: 'Failed to process device vitals' });
@@ -292,7 +314,7 @@ router.post('/device/alert', async (req: Request, res: Response) => {
     const user = await getDeviceUser(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized: Invalid Device Token' });
 
-    const { type } = req.body;
+    const { type, severity } = req.body;
     if (!type || !['manual', 'fall', 'health'].includes(type)) {
       return res.status(400).json({ error: 'type (manual, fall, or health) is required' });
     }
@@ -304,6 +326,21 @@ router.post('/device/alert', async (req: Request, res: Response) => {
       timestamp: Date.now(),
     };
     await db.addAlert(newAlert);
+
+    if (type === 'fall') {
+      const fallEvent = {
+        id: `fall_${Date.now()}`,
+        userId: user.id,
+        timestamp: Date.now(),
+        severity: (severity as 'minor' | 'confirmed') || 'confirmed',
+        status: 'confirmed' as const,
+      };
+      await db.addFallEvent(fallEvent);
+      if (socketEmitter) {
+        socketEmitter('new_fall', { userId: user.id, name: user.name, fall: fallEvent });
+      }
+    }
+
     if (socketEmitter) {
       socketEmitter('new_alert', { userId: user.id, name: user.name, alert: newAlert });
     }

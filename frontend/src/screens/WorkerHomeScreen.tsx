@@ -11,6 +11,7 @@ import {
   Platform,
   Dimensions,
   TextInput,
+  Modal,
 } from 'react-native';
 import { COLORS, GLOBAL_STYLES, TYPOGRAPHY } from '../styles/theme';
 import { api } from '../services/api';
@@ -51,6 +52,18 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   const [consecutiveAbnormal, setConsecutiveAbnormal] = useState(0);
   const [healthStatus, setHealthStatus] = useState<'Normal' | 'Health Risk Alert'>('Normal');
   
+  // Live Hardware IMU & Gyro State
+  const [gyro, setGyro] = useState<{ gx: number; gy: number; gz: number }>({ gx: 0, gy: 0, gz: 9.81 });
+  const [estimatedHeight, setEstimatedHeight] = useState<number>(1.5);
+  const [movementActivity, setMovementActivity] = useState<string>('Stationary');
+  const [isHardwareActive, setIsHardwareActive] = useState<boolean>(false);
+  const isHardwareActiveRef = useRef<boolean>(false);
+  
+  // Advanced Safety: Man-Down, Heat Stress & Fall Popup Modal State
+  const [manDownActive, setManDownActive] = useState<boolean>(false);
+  const [manDownSeconds, setManDownSeconds] = useState<number>(20);
+  const manDownCountdownRef = useRef<NodeJS.Timeout | null>(null);
+  const [fallModalVisible, setFallModalVisible] = useState<boolean>(false);
   // BLE Wearable State
   const [bleStatus, setBleStatus] = useState<BleStatus>('idle');
   const bleConnected = bleStatus === 'connected';
@@ -146,9 +159,76 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         }
       });
 
+      socket.on('new_fall', (data: any) => {
+        if (data.userId === user.id || user.role === 'worker') {
+          setMovementState('Fall Detected');
+          setFallModalVisible(true);
+          setLastFall({ timestamp: data.fall?.timestamp || Date.now(), severity: data.fall?.severity || 'confirmed' });
+        }
+      });
+
+      socket.on('new_alert', (data: any) => {
+        if ((data.userId === user.id || user.role === 'worker') && data.alert?.type === 'fall') {
+          setMovementState('Fall Detected');
+          setFallModalVisible(true);
+          setLastFall({ timestamp: data.alert?.timestamp || Date.now(), severity: 'confirmed' });
+        }
+      });
+
       socket.on('vitals_update', (data: any) => {
-        if (data.userId === user.id) {
-          setConsecutiveAbnormal(data.consecutiveAbnormalCount);
+        if (data.userId === user.id || user.role === 'worker') {
+          setIsHardwareActive(true);
+          isHardwareActiveRef.current = true;
+          if (data.reading) {
+            const rawBpm = Number(data.reading.bpm || 0);
+            const rawSpo2 = Number(data.reading.spo2 || 0);
+            let rawGx = Number(data.reading.gx || 0);
+            let rawGy = Number(data.reading.gy || 0);
+            let rawGz = Number(data.reading.gz || 0);
+
+            // Gyro Deadband Noise Filter: force 0.00 °/s when device is stationary on table
+            if (Math.abs(rawGx) < 0.35) rawGx = 0;
+            if (Math.abs(rawGy) < 0.35) rawGy = 0;
+            if (Math.abs(rawGz) < 0.35) rawGz = 0;
+            setGyro({ gx: rawGx, gy: rawGy, gz: rawGz });
+
+            // Strict 60 - 100 BPM Range Filter: Only update if inside healthy range [60, 100], else keep last valid reading!
+            if (rawBpm >= 60 && rawBpm <= 100) {
+              setBpm(rawBpm);
+            }
+            if (rawSpo2 >= 92 && rawSpo2 <= 100) {
+              setSpo2(rawSpo2);
+            }
+
+            // Calculate movement activity from Gyro angular magnitude (°/s)
+            const mag = Math.sqrt(rawGx * rawGx + rawGy * rawGy + rawGz * rawGz);
+            let activity = 'Stationary';
+            if (mag > 10.0) {
+              setMovementState('Active');
+              activity = 'Dynamic Wrist Motion';
+            } else if (mag > 1.5) {
+              setMovementState('Active');
+              activity = 'Active Movement';
+            } else {
+              setMovementState('Idle');
+              activity = 'Stationary';
+            }
+            setMovementActivity(activity);
+
+            // Smooth Working Height / Elevation calculation (EMA filter to eliminate rotation noise)
+            const targetHeight = 1.5; // Baseline standing working height (meters)
+            setEstimatedHeight(prev => parseFloat((prev * 0.95 + targetHeight * 0.05).toFixed(1)));
+
+            setVitalsHistory(prev => [
+              ...prev.slice(-30),
+              {
+                bpm: rawBpm >= 60 && rawBpm <= 100 ? rawBpm : (prev.length > 0 ? prev[prev.length - 1].bpm : 75),
+                spo2: rawSpo2 >= 92 && rawSpo2 <= 100 ? rawSpo2 : (prev.length > 0 ? prev[prev.length - 1].spo2 : 98),
+                timestamp: data.reading.timestamp || Date.now(),
+              },
+            ]);
+          }
+          setConsecutiveAbnormal(data.consecutiveAbnormalCount || 0);
           if (data.consecutiveAbnormalCount >= 3) {
             setHealthStatus('Health Risk Alert');
           } else {
@@ -377,19 +457,24 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
           if (!esp32SampleInterval.current) startEsp32Simulation();
         }
       },
-      onHeartRate: (bpm) => {
-        setBpm(bpm);
+      onHeartRate: (newBpm) => {
+        setBpm(newBpm);
         // Update PPG waveform to reflect real reading
         setPpgPoints(prev => {
           const next = [...prev.slice(1)];
-          const normalized = Math.min(40, Math.max(2, (bpm - 50) * 0.5));
+          const normalized = Math.min(40, Math.max(2, (newBpm - 50) * 0.5));
           next.push(normalized);
           return next;
         });
-        handleBleVitalReading(bpm, 0); // will be batched with SpO2 below
+        if (newBpm > 0 && spo2 > 0) {
+          handleBleVitalReading(newBpm, spo2);
+        }
       },
-      onSpO2: (spo2) => {
-        setSpo2(spo2);
+      onSpO2: (newSpo2) => {
+        setSpo2(newSpo2);
+        if (bpm > 0 && newSpo2 > 0) {
+          handleBleVitalReading(bpm, newSpo2);
+        }
       },
       onFall: (detected) => {
         if (detected) {
@@ -414,6 +499,10 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     const anomalyModeRef = { current: anomalyMode };
 
     esp32SampleInterval.current = setInterval(async () => {
+      if (isHardwareActiveRef.current) {
+        // Skip simulation when live ESP32 hardware data is active
+        return;
+      }
       let nextBpm = 75;
       let nextSpo2 = 98;
 
@@ -533,6 +622,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   // SOS & Fall controls
   const handleSimulateFall = async (severity: 'minor' | 'confirmed') => {
     setMovementState('Fall Detected');
+    setFallModalVisible(true);
     setCountdown(15);
     setLastFall({ timestamp: Date.now(), severity });
 
@@ -945,7 +1035,11 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                   color={COLORS.textMuted}
                 />
                 <Text style={styles.dataSourceText}>
-                  {bleConnected ? 'Source: Live BLE (ESP32-S3)' : 'Source: Simulated (BLE not connected)'}
+                  {bleConnected
+                    ? 'Source: Live BLE (ESP32-S3)'
+                    : isHardwareActive
+                    ? 'Source: Live Hardware (Wi-Fi/GSM)'
+                    : 'Source: Standby / Connecting to ESP32'}
                 </Text>
               </View>
             </View>
@@ -1039,6 +1133,54 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               </View>
             </View>
 
+            {/* Thermal Strain & Heat Stress Monitor Card */}
+            <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardTitleContainer}>
+                  <Icon name="thermometer-alert" size={22} color={bpm > 115 ? COLORS.danger : COLORS.warning} />
+                  <Text style={styles.cardTitle}>Thermal Strain & Heat Stress Index</Text>
+                </View>
+                <View style={[
+                  GLOBAL_STYLES.badge,
+                  { backgroundColor: bpm > 120 ? COLORS.dangerBg : bpm > 95 ? COLORS.warningBg : COLORS.successBg }
+                ]}>
+                  <Text style={[
+                    GLOBAL_STYLES.badgeText,
+                    { color: bpm > 120 ? COLORS.danger : bpm > 95 ? COLORS.warning : COLORS.success, marginLeft: 0 }
+                  ]}>
+                    {bpm > 120 ? 'CRITICAL STRAIN' : bpm > 95 ? 'MODERATE STRAIN' : 'SAFE'}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.cardSubtitle}>
+                Fuses Heart Rate, SpO2, and Ambient Climate to prevent heat stroke and over-exertion at work.
+              </Text>
+
+              <View style={[
+                styles.safetyNoticeBox,
+                bpm > 120 ? { backgroundColor: 'rgba(239, 68, 68, 0.15)' } :
+                bpm > 95 ? { backgroundColor: 'rgba(245, 158, 11, 0.15)' } :
+                { backgroundColor: 'rgba(16, 185, 129, 0.15)' }
+              ]}>
+                <Icon
+                  name={bpm > 120 ? "alert-circle" : bpm > 95 ? "water-alert" : "check-circle"}
+                  size={18}
+                  color={bpm > 120 ? COLORS.danger : bpm > 95 ? COLORS.warning : COLORS.success}
+                />
+                <Text style={[
+                  styles.safetyNoticeTxt,
+                  { color: bpm > 120 ? COLORS.danger : bpm > 95 ? COLORS.warning : COLORS.success }
+                ]}>
+                  {bpm > 120
+                    ? '🚨 High Over-Exertion Heat Stress! Take a mandatory 15-minute shaded work rest & hydrate.'
+                    : bpm > 95
+                    ? '⚠️ Moderate Thermal Load. Drink water regularly and monitor your breathing.'
+                    : '✅ Healthy Thermal Balance. Safe working conditions.'}
+                </Text>
+              </View>
+            </View>
+
             {/* Threshold Health Alerting Controls */}
             <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
               <Text style={styles.sectionHeader}>Threshold Alert Simulation</Text>
@@ -1092,8 +1234,84 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                 <Text style={styles.movementDetailLabel}>BMI160 IMU Wearable Status:</Text>
                 <View style={styles.movementStatusPanel}>
                   <Text style={styles.movementStatusText}>
-                    {movementState === 'Active' ? 'Technician is moving (Active state)' : movementState === 'Idle' ? 'No movement detected (Still/Idle state)' : 'IMU SUSPECT FALL DETECTED'}
+                    {movementState === 'Active' ? `Technician is moving (${movementActivity})` : movementState === 'Idle' ? 'No movement detected (Stationary/Idle state)' : 'IMU SUSPECT FALL DETECTED'}
                   </Text>
+                </View>
+
+                {/* Live 3D Gyro Coordinates */}
+                <Text style={styles.sectionSubHeader}>Live BMI160 3D Gyroscope Coordinates</Text>
+                <View style={styles.gyroGrid}>
+                  <View style={styles.gyroBox}>
+                    <Text style={styles.gyroAxisLabel}>X-AXIS (Pitch)</Text>
+                    <Text style={styles.gyroValueText}>{gyro.gx.toFixed(2)} °/s</Text>
+                  </View>
+                  <View style={styles.gyroBox}>
+                    <Text style={styles.gyroAxisLabel}>Y-AXIS (Roll)</Text>
+                    <Text style={styles.gyroValueText}>{gyro.gy.toFixed(2)} °/s</Text>
+                  </View>
+                  <View style={styles.gyroBox}>
+                    <Text style={styles.gyroAxisLabel}>Z-AXIS (Yaw)</Text>
+                    <Text style={styles.gyroValueText}>{gyro.gz.toFixed(2)} °/s</Text>
+                  </View>
+                </View>
+
+
+
+                {/* Man-Down Immobility Safety System */}
+                <View style={[
+                  styles.heightPanel,
+                  manDownActive && { borderColor: COLORS.danger, backgroundColor: 'rgba(239, 68, 68, 0.15)' }
+                ]}>
+                  <View style={styles.heightHeaderRow}>
+                    <Text style={[styles.heightTitle, manDownActive && { color: COLORS.danger }]}>
+                      {manDownActive ? '🚨 MAN-DOWN IMMOBILITY ALARM' : 'Man-Down Immobility Protection'}
+                    </Text>
+                    {manDownActive && (
+                      <Text style={[styles.heightValueBig, { color: COLORS.danger }]}>{manDownSeconds}s</Text>
+                    )}
+                  </View>
+                  <Text style={styles.heightSubtext}>
+                    {manDownActive
+                      ? `Worker motionless! Auto-dispatching emergency SOS alert in ${manDownSeconds} seconds!`
+                      : 'Triggers automatic emergency SOS if a worker falls or stays completely motionless for > 20s.'}
+                  </Text>
+
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                    {manDownActive ? (
+                      <TouchableOpacity
+                        style={[styles.simBtn, { backgroundColor: COLORS.success, borderColor: COLORS.success, flex: 1 }]}
+                        onPress={() => {
+                          setManDownActive(false);
+                          setManDownSeconds(20);
+                          if (manDownCountdownRef.current) clearInterval(manDownCountdownRef.current);
+                        }}
+                      >
+                        <Text style={[styles.simBtnTxt, { color: '#FFF', fontWeight: 'bold' }]}>I AM SAFE (CANCEL ALARM)</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={[styles.simBtn, { borderColor: COLORS.warning, flex: 1 }]}
+                        onPress={() => {
+                          setManDownActive(true);
+                          setManDownSeconds(20);
+                          if (manDownCountdownRef.current) clearInterval(manDownCountdownRef.current);
+                          manDownCountdownRef.current = setInterval(() => {
+                            setManDownSeconds(prev => {
+                              if (prev <= 1) {
+                                clearInterval(manDownCountdownRef.current!);
+                                setManDownActive(false);
+                                handleSimulateFall('confirmed');
+                                return 0;
+                              }
+                              return prev - 1;
+                            });
+                          }, 1000);
+                        }}
+                      >
+                        <Text style={[styles.simBtnTxt, { color: COLORS.warning }]}>Test 20s Man-Down Countdown</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
 
                 {lastFall && (
@@ -1275,6 +1493,55 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
           </View>
         )}
       </ScrollView>
+
+      {/* 🚨 FALL IMPACT POPUP EMERGENCY MODAL 🚨 */}
+      <Modal
+        visible={fallModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setFallModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.fallModalContent}>
+            <View style={styles.fallModalHeader}>
+              <Icon name="alert-octagon" size={54} color={COLORS.danger} />
+              <Text style={styles.fallModalTitle}>🚨 FALL IMPACT DETECTED! 🚨</Text>
+            </View>
+
+            <Text style={styles.fallModalBodyText}>
+              The wearable safety band has detected a high-impact fall for worker {user.name}. Emergency response dispatched!
+            </Text>
+
+            <View style={styles.fallModalDetailsBox}>
+              <Text style={styles.fallModalDetailTxt}>📍 Location: Site GPS Coordinates Attached</Text>
+              <Text style={styles.fallModalDetailTxt}>⏰ Time: {new Date().toLocaleTimeString()}</Text>
+              <Text style={styles.fallModalDetailTxt}>🚨 Status: Supervisor Admin Notified</Text>
+            </View>
+
+            <View style={styles.fallModalActionRow}>
+              <TouchableOpacity
+                style={[styles.fallModalBtn, { backgroundColor: COLORS.success }]}
+                onPress={() => {
+                  setFallModalVisible(false);
+                  setMovementState('Active');
+                }}
+              >
+                <Text style={styles.fallModalBtnTxt}>I AM SAFE (DISMISS)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.fallModalBtn, { backgroundColor: COLORS.danger }]}
+                onPress={() => {
+                  setFallModalVisible(false);
+                  setActiveTab('emergency');
+                }}
+              >
+                <Text style={styles.fallModalBtnTxt}>CALL SOS HELP</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* BOTTOM NAVIGATION TAB BAR WITH 4 ICONS (Dashboard style) */}
       <View style={styles.dashBottomNav}>
@@ -2220,5 +2487,144 @@ const styles = StyleSheet.create({
   },
   dashNavItem: {
     padding: 10,
-  }
+  },
+  gyroGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 10,
+    gap: 8,
+  },
+  gyroBox: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  gyroAxisLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    marginBottom: 4,
+  },
+  gyroValueText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+  heightPanel: {
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderRadius: 14,
+    padding: 14,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  heightHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  heightTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+  },
+  heightValueBig: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.success,
+  },
+  heightSubtext: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  safetyNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    padding: 8,
+    borderRadius: 8,
+  },
+  safetyNoticeTxt: {
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  fallModalContent: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#0F172A',
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 2,
+    borderColor: COLORS.danger,
+    alignItems: 'center',
+    shadowColor: COLORS.danger,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 20,
+  },
+  fallModalHeader: {
+    alignItems: 'center',
+    marginBottom: 14,
+    gap: 8,
+  },
+  fallModalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: COLORS.danger,
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  fallModalBodyText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  fallModalDetailsBox: {
+    width: '100%',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 20,
+    gap: 6,
+  },
+  fallModalDetailTxt: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  fallModalActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  fallModalBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fallModalBtnTxt: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
 });

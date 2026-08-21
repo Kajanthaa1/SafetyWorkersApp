@@ -82,6 +82,8 @@ export interface VitalReading {
   gx?: number;
   gy?: number;
   gz?: number;
+  altitude?: number;
+  floorLevel?: number;
   timestamp: number;
   source?: 'ble' | 'gsm';
 }
@@ -234,6 +236,23 @@ class Database {
     }
     await this.db.collection('users').doc(user.id).set(user);
     return user;
+  }
+
+  async updateUserDeviceToken(userId: string, token: string): Promise<User | undefined> {
+    if (useLocalDb) {
+      const users = await this.getUsers();
+      const user = users.find(u => u.id === userId);
+      if (user) {
+        user.deviceToken = token;
+        writeJsonFile('users.json', users);
+      }
+      return user;
+    }
+    const ref = this.db.collection('users').doc(userId);
+    await ref.update({ deviceToken: token });
+    const doc = await ref.get();
+    if (!doc.exists) return undefined;
+    return { id: doc.id, ...doc.data() } as User;
   }
 
   // ── Vitals ─────────────────────────────────────────────────────────────────────

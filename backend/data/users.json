@@ -54,5 +54,29 @@
     "role": "admin",
     "passwordHash": "9b84b0001e3dc1eda54e7d755ed9167cca598cf6d08803f2f0b91cd9cbaf67a4",
     "deviceToken": "device_1785572310242_q8qtc4elbi8"
+  },
+  {
+    "id": "worker_1785574547207",
+    "username": "disaa",
+    "name": "Disaa",
+    "role": "worker",
+    "passwordHash": "9b84b0001e3dc1eda54e7d755ed9167cca598cf6d08803f2f0b91cd9cbaf67a4",
+    "deviceToken": "device_1785574547207_bcls7qwj02d"
+  },
+  {
+    "id": "worker_1787293120194",
+    "username": "sanoo1",
+    "name": "sanoo1",
+    "role": "worker",
+    "passwordHash": "7a7416dd3b35ece54861e825e0a3aa3f868b7b4a405ab4437e6445d074f926be",
+    "deviceToken": "device_token_worker1_xyz"
+  },
+  {
+    "id": "admin_1787299601402",
+    "username": "shangeeth",
+    "name": "Shangeeth",
+    "role": "admin",
+    "passwordHash": "7a7416dd3b35ece54861e825e0a3aa3f868b7b4a405ab4437e6445d074f926be",
+    "deviceToken": "device_1787299601402_ilrs5hv9yz9"
   }
 ]

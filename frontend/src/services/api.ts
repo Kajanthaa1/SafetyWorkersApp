@@ -29,7 +29,7 @@ const getBackendUrl = () => {
   }
 
   // Hardcode fallback to your machine's exact local IP for Expo Go compatibility
-  return 'http://10.34.14.241:5000';
+  return 'http://10.34.13.10:5000';
 };
 
 export const API_BASE = getBackendUrl();
