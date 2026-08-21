@@ -73,20 +73,6 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
       loadAlerts();
     });
 
-    socket.on('fall_cancel', (data: any) => {
-      loadAlerts();
-      setWorkerVitals(prev => {
-        if (!prev[data.userId]) return prev;
-        return {
-          ...prev,
-          [data.userId]: {
-            ...prev[data.userId],
-            movementState: 'Active'
-          }
-        };
-      });
-    });
-
     socket.on('new_alert', (data: any) => {
       loadAlerts();
     });
@@ -284,8 +270,8 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
               const vitals = workerVitals[w.id];
               const isOffline = !vitals || (Date.now() - vitals.lastUpdated) > 30000; // 30 seconds to account for GSM latency
 
-              // Check if worker has an active fall alert in alerts list
-              const hasActiveFall = activeAlerts.some(a => a.userId === w.id);
+              // Check if worker has an ACTIVE, UNRESOLVED fall alert
+              const hasActiveFall = activeAlerts.some(a => a.userId === w.id && a.type === 'fall' && a.status === 'active');
 
               return (
                 <View key={w.id} style={[styles.workerCard, hasActiveFall && styles.workerCardDanger]}>
@@ -335,8 +321,6 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
                         </Text>
                       </View>
 
-
-
                       <View style={styles.movementStatRow}>
                         <Text style={styles.movementStatLabel}>IMU State:</Text>
                         <Text style={[
@@ -346,39 +330,22 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
                               ? COLORS.textMuted 
                               : (hasActiveFall 
                                   ? COLORS.danger 
-                                  : vitals.bpm > 90 
-                                    ? COLORS.success 
-                                    : COLORS.warning)
+                                  : COLORS.success)
                           }
                         ]}>
-                          {isOffline ? 'Unknown (Offline)' : (hasActiveFall ? 'FALL TRIGGERED' : vitals.bpm > 90 ? 'Active' : 'Still/Idle')}
+                          {isOffline 
+                            ? 'Unknown (Offline)' 
+                            : (hasActiveFall 
+                                ? 'FALL TRIGGERED' 
+                                : (vitals.gx && (Math.abs(vitals.gx) > 0.35 || Math.abs(vitals.gy) > 0.35 || Math.abs(vitals.gz) > 0.35) 
+                                    ? 'Active (Moving)' 
+                                    : 'Normal / Stationary'))}
                         </Text>
                       </View>
 
                       <Text style={[styles.lastSyncText, isOffline && { color: COLORS.danger }]}>
                         {isOffline ? 'Last Sync: ' : 'Sync: '}{new Date(vitals.lastUpdated).toLocaleTimeString()}
                       </Text>
-
-                      {hasActiveFall && (
-                        <TouchableOpacity
-                          style={{
-                            marginTop: 10,
-                            backgroundColor: COLORS.success,
-                            paddingVertical: 8,
-                            paddingHorizontal: 12,
-                            borderRadius: 8,
-                            alignItems: 'center',
-                          }}
-                          onPress={async () => {
-                            await api.resolveUserAlerts(w.id);
-                            loadAlerts();
-                          }}
-                        >
-                          <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>
-                            ✅ RESET SAFETY (MARK SAFE)
-                          </Text>
-                        </TouchableOpacity>
-                      )}
                     </View>
                   )}
                 </View>

@@ -511,25 +511,6 @@ router.patch('/alerts/:id/resolve', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/alerts/resolve-user', async (req: Request, res: Response) => {
-  try {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: 'userId is required' });
-
-    const alerts = await db.getAlerts(userId);
-    const activeAlerts = alerts.filter(a => a.status === 'active');
-    for (const a of activeAlerts) {
-      await db.resolveAlert(a.id);
-    }
-    if (socketEmitter) {
-      socketEmitter('alert_resolved', { userId });
-    }
-    return res.json({ success: true, count: activeAlerts.length });
-  } catch (err) {
-    return res.status(500).json({ error: 'Failed to resolve user alerts' });
-  }
-});
-
 // ─────────────────────────────────────────────────────────────────────────────
 // 8. REAL-TIME WEATHER (OpenWeatherMap)
 // ─────────────────────────────────────────────────────────────────────────────

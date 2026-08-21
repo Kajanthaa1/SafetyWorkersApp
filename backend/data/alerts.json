@@ -902,7 +902,7 @@
     "id": "alert_1787300637346",
     "userId": "worker_1787293120194",
     "type": "health",
-    "status": "active",
+    "status": "resolved",
     "timestamp": 1787300637346
   }
 ]

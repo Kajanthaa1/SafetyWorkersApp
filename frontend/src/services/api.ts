@@ -127,12 +127,6 @@ export const api = {
       method: 'PATCH',
     }),
 
-  resolveUserAlerts: (userId: string) =>
-    request<any>('/api/alerts/resolve-user', {
-      method: 'POST',
-      body: JSON.stringify({ userId }),
-    }),
-
   // Real-time weather (uses device GPS coordinates)
   fetchWeather: (lat: number, lon: number) =>
     request<any>(`/api/weather?lat=${lat}&lon=${lon}`),
