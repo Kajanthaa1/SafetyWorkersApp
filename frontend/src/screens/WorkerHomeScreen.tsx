@@ -653,14 +653,13 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     setCountdown(null);
     setMovementState('Active');
 
-    if (activeFallId) {
-      try {
-        await api.resolveAlert(activeFallId);
-        setActiveFallId(null);
-        loadAlertHistory();
-      } catch (err) {
-        console.error(err);
-      }
+    try {
+      await api.resolveUserAlerts(user.id);
+      emitFallCancel(activeFallId || 'fall_latest', user.id);
+      setActiveFallId(null);
+      loadAlertHistory();
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -1521,9 +1520,15 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
             <View style={styles.fallModalActionRow}>
               <TouchableOpacity
                 style={[styles.fallModalBtn, { backgroundColor: COLORS.success }]}
-                onPress={() => {
+                onPress={async () => {
                   setFallModalVisible(false);
                   setMovementState('Active');
+                  try {
+                    await api.resolveUserAlerts(user.id);
+                    emitFallCancel(activeFallId || 'fall_latest', user.id);
+                  } catch (e) {
+                    console.error(e);
+                  }
                 }}
               >
                 <Text style={styles.fallModalBtnTxt}>I AM SAFE (DISMISS)</Text>

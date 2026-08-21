@@ -73,6 +73,20 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
       loadAlerts();
     });
 
+    socket.on('fall_cancel', (data: any) => {
+      loadAlerts();
+      setWorkerVitals(prev => {
+        if (!prev[data.userId]) return prev;
+        return {
+          ...prev,
+          [data.userId]: {
+            ...prev[data.userId],
+            movementState: 'Active'
+          }
+        };
+      });
+    });
+
     socket.on('new_alert', (data: any) => {
       loadAlerts();
     });
@@ -344,6 +358,27 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
                       <Text style={[styles.lastSyncText, isOffline && { color: COLORS.danger }]}>
                         {isOffline ? 'Last Sync: ' : 'Sync: '}{new Date(vitals.lastUpdated).toLocaleTimeString()}
                       </Text>
+
+                      {hasActiveFall && (
+                        <TouchableOpacity
+                          style={{
+                            marginTop: 10,
+                            backgroundColor: COLORS.success,
+                            paddingVertical: 8,
+                            paddingHorizontal: 12,
+                            borderRadius: 8,
+                            alignItems: 'center',
+                          }}
+                          onPress={async () => {
+                            await api.resolveUserAlerts(w.id);
+                            loadAlerts();
+                          }}
+                        >
+                          <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>
+                            ✅ RESET SAFETY (MARK SAFE)
+                          </Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   )}
                 </View>
