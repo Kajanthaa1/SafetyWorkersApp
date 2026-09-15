@@ -28,13 +28,17 @@ import { useNetworkStatus } from '../services/networkStatus';
 import { offlineQueue } from '../services/offlineQueue';
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
+import ArcProgressGauge from '../components/ArcProgressGauge';
+import EcgWaveform from '../components/EcgWaveform';
+import MiniBarChart from '../components/MiniBarChart';
+import SmartwatchHeroCard from '../components/SmartwatchHeroCard';
 
 interface WorkerHomeScreenProps {
   user: any;
   onLogout: (coords?: { latitude: number; longitude: number }) => void;
 }
 
-type TabType = 'dashboard' | 'health' | 'fall' | 'tasks' | 'emergency' | 'weather';
+type TabType = 'dashboard' | 'health' | 'fall' | 'emergency' | 'weather';
 
 export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenProps) {
   // Navigation Tabs state
@@ -47,6 +51,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   // 1. Health Monitor State
   const [bpm, setBpm] = useState(76);
   const [spo2, setSpo2] = useState(98);
+  const [bodyTemp, setBodyTemp] = useState<number>(36.6);
   const [vitalsHistory, setVitalsHistory] = useState<any[]>([]);
   const [loadingVitals, setLoadingVitals] = useState(false);
   const [consecutiveAbnormal, setConsecutiveAbnormal] = useState(0);
@@ -64,6 +69,8 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   const [manDownSeconds, setManDownSeconds] = useState<number>(20);
   const manDownCountdownRef = useRef<NodeJS.Timeout | null>(null);
   const [fallModalVisible, setFallModalVisible] = useState<boolean>(false);
+  const [logoutModalVisible, setLogoutModalVisible] = useState<boolean>(false);
+  const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
   // BLE Wearable State
   const [bleStatus, setBleStatus] = useState<BleStatus>('idle');
   const bleConnected = bleStatus === 'connected';
@@ -328,43 +335,111 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     }
   };
 
-  const loadWeather = async (coords: { latitude: number; longitude: number }) => {
+  const loadWeather = async (coords?: { latitude: number; longitude: number }, city?: string) => {
     setLoadingWeather(true);
     try {
-      const data = await api.fetchWeather(coords.latitude, coords.longitude);
+      const data = await api.fetchWeather(coords?.latitude, coords?.longitude, city);
       setWeather(data);
-    } catch (err) {
-      console.error('[Weather] Failed to fetch:', err);
+      if (data?.coordinates && (!coords || (coords.latitude === 0 && coords.longitude === 0))) {
+        setGpsCoords({ latitude: data.coordinates.lat, longitude: data.coordinates.lon });
+      }
+    } catch (err: any) {
+      console.warn('[Weather] Failed to fetch:', err?.message || err);
     } finally {
       setLoadingWeather(false);
     }
   };
 
-  // Request GPS permission and get real device location
-  const requestLocationAndLoad = async () => {
-    setGpsLoading(true);
-    setGpsError(null);
+  // Fallback to IP-based geolocation if device GPS is turned off or unavailable
+  const fallbackToIpWeather = async () => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setGpsError('Location permission denied. Using default coordinates.');
-        const fallback = { latitude: 0, longitude: 0 };
-        setGpsCoords(fallback);
-        loadWeather(fallback);
+      const ipRes = await fetch('http://ip-api.com/json').then(r => r.json()).catch(() => null);
+      if (ipRes && ipRes.lat && ipRes.lon) {
+        const ipCoords = { latitude: ipRes.lat, longitude: ipRes.lon };
+        setGpsCoords(ipCoords);
+        await loadWeather(ipCoords);
         return;
       }
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-      setGpsCoords(coords);
-      loadWeather(coords);
-    } catch (err) {
-      console.error('[Location] Error getting location:', err);
-      setGpsError('Could not get GPS location.');
-      const fallback = { latitude: 0, longitude: 0 };
-      setGpsCoords(fallback);
-      loadWeather(fallback);
+    } catch (e) {
+      console.warn('[Location] IP geolocation fetch failed:', e);
+    }
+    // Fallback: ask backend directly without coordinates (backend auto-detects via IP)
+    await loadWeather();
+  };
+
+  // Request GPS permission and get real device location with graceful fallbacks
+  const requestLocationAndLoad = async (cityQuery?: string) => {
+    setGpsLoading(true);
+    setGpsError(null);
+
+    // If a manual city search was entered
+    if (cityQuery && cityQuery.trim()) {
+      await loadWeather(undefined, cityQuery.trim());
+      setGpsLoading(false);
+      return;
+    }
+
+    try {
+      // 1. Check & request foreground location permissions
+      const { status: currentStatus } = await Location.getForegroundPermissionsAsync();
+      let status = currentStatus;
+      if (status !== 'granted') {
+        const req = await Location.requestForegroundPermissionsAsync();
+        status = req.status;
+      }
+
+      if (status !== 'granted') {
+        setGpsError('GPS permission not granted. Showing network weather.');
+        await fallbackToIpWeather();
+        return;
+      }
+
+      // 2. Check if phone's location services (GPS toggle) are on
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!servicesEnabled && Platform.OS === 'android') {
+        try {
+          await Location.enableNetworkProviderAsync();
+        } catch (enableErr) {
+          console.warn('[Location] Enable location services prompt dismissed:', enableErr);
+        }
+      }
+
+      // 3. Try to get cached / last known position first (instant response)
+      let resolved = false;
+      try {
+        const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: 600000 });
+        if (lastKnown && lastKnown.coords) {
+          const coords = { latitude: lastKnown.coords.latitude, longitude: lastKnown.coords.longitude };
+          setGpsCoords(coords);
+          loadWeather(coords);
+          resolved = true;
+        }
+      } catch (lastErr) {
+        console.warn('[Location] Last known position unavailable:', lastErr);
+      }
+
+      // 4. Try current position with balanced accuracy & timeout
+      try {
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 5000,
+        });
+        if (loc && loc.coords) {
+          const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+          setGpsCoords(coords);
+          loadWeather(coords);
+          resolved = true;
+        }
+      } catch (currErr: any) {
+        console.warn('[Location] getCurrentPositionAsync:', currErr?.message || currErr);
+        if (!resolved) {
+          setGpsError('GPS unavailable indoors. Using network location.');
+          await fallbackToIpWeather();
+        }
+      }
+    } catch (err: any) {
+      console.warn('[Location] Location error handled:', err?.message || err);
+      await fallbackToIpWeather();
     } finally {
       setGpsLoading(false);
     }
@@ -707,6 +782,27 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     }
   };
 
+  // Dynamic Worker Safety Score calculation (0 - 100%)
+  const getSafetyScore = () => {
+    let score = 100;
+    // Heart Rate evaluation
+    if (bpm > 120 || bpm < 50) score -= 25;
+    else if (bpm > 100 || bpm < 60) score -= 10;
+
+    // SpO2 Oxygen evaluation
+    if (spo2 < 92) score -= 35;
+    else if (spo2 < 95) score -= 15;
+
+    // Body Temp evaluation
+    if (bodyTemp > 38.5) score -= 30;
+    else if (bodyTemp > 37.5) score -= 15;
+
+    // Fall Impact evaluation
+    if (movementState === 'Fall Detected') score -= 50;
+
+    return Math.max(score, 0);
+  };
+
   // Helper styles / classes
   const getBpmColor = () => {
     if (bpm > 140 || bpm < 60) return COLORS.danger;
@@ -718,99 +814,78 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     return COLORS.success;
   };
 
-  const renderHistoryGraph = () => {
-    if (vitalsHistory.length < 2) {
-      return <Text style={styles.chartFallback}>Gathering trend line data...</Text>;
+
+
+  const handlePerformLogout = () => {
+    setLogoutModalVisible(false);
+    if (onLogout) {
+      onLogout(gpsCoords || undefined);
     }
-    const width = Dimensions.get('window').width - 64;
-    const height = 120;
-    
-    // Draw simple line representation
-    const maxVal = 160;
-    const minVal = 50;
-    const range = maxVal - minVal;
-
-    return (
-      <View style={[styles.historyChartContainer, { width, height }]}>
-        {/* Draw grid lines */}
-        <View style={[styles.gridLine, { bottom: '25%' }]}><Text style={styles.gridLineText}>80 BPM</Text></View>
-        <View style={[styles.gridLine, { bottom: '50%' }]}><Text style={styles.gridLineText}>100 BPM</Text></View>
-        <View style={[styles.gridLine, { bottom: '75%' }]}><Text style={styles.gridLineText}>130 BPM</Text></View>
-        
-        {/* Plot HR data */}
-        <View style={styles.pointsOverlay}>
-          {vitalsHistory.map((h, i) => {
-            const left = (i / (vitalsHistory.length - 1)) * (width - 10);
-            const bottom = ((h.bpm - minVal) / range) * height;
-            
-            return (
-              <View 
-                key={i} 
-                style={[
-                  styles.chartPoint, 
-                  { 
-                    left, 
-                    bottom, 
-                    backgroundColor: h.bpm > 140 || h.bpm < 60 ? COLORS.danger : COLORS.success 
-                  }
-                ]} 
-              />
-            );
-          })}
-        </View>
-
-        {/* Legend */}
-        <View style={styles.chartLegend}>
-          <View style={styles.legendRow}>
-            <View style={[styles.legendDot, { backgroundColor: COLORS.success }]} />
-            <Text style={styles.legendText}>Heart Rate Vitals (BPM)</Text>
-          </View>
-          <Text style={styles.legendTime}>Last hour trend (Sync Cadence: 10s)</Text>
-        </View>
-      </View>
-    );
   };
 
   return (
     <LinearGradient
-      colors={activeTab === 'dashboard' ? ['#E3D5F2', '#C6D2F6'] : [COLORS.background, COLORS.background]}
+      colors={['#E3D5F2', '#C6D2F6']}
       style={GLOBAL_STYLES.container}
     >
-      {/* Top Header (only show legacy header if NOT on dashboard) */}
-      {activeTab !== 'dashboard' && (
-        <View style={styles.header}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <TouchableOpacity onPress={() => setActiveTab('dashboard')} style={{ padding: 4 }}>
+      {/* Top Header with Profile, Bluetooth Status, and Logout Option (Visible across all tabs) */}
+      <View style={styles.header}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {activeTab !== 'dashboard' ? (
+            <TouchableOpacity
+              onPress={() => setActiveTab('dashboard')}
+              style={{ padding: 4 }}
+              accessibilityLabel="Back to Dashboard"
+            >
               <Icon name="arrow-left" size={22} color={COLORS.text} />
             </TouchableOpacity>
-            <View>
-              <Text style={styles.userName}>{user.name}</Text>
-              <View style={styles.roleContainer}>
-                <Icon name="hard-hat" size={14} color={COLORS.success} />
-                <Text style={styles.userRole}>Worker Interface</Text>
-              </View>
+          ) : (
+            <View style={styles.headerAvatarCircle}>
+              <Icon name="hard-hat" size={20} color="#6C5CE7" />
+            </View>
+          )}
+          <View>
+            <Text style={styles.userName}>{user.name}</Text>
+            <View style={styles.roleContainer}>
+              <Icon name="shield-check" size={13} color={COLORS.success} />
+              <Text style={styles.userRole}>Worker Interface</Text>
             </View>
           </View>
-
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.connectionBadge}
-              onPress={bleConnected ? handleDisconnectWearable : handleConnectWearable}
-            >
-              <Icon
-                name={bleConnected ? 'bluetooth-connect' : bleStatus === 'scanning' || bleStatus === 'connecting' ? 'bluetooth-settings' : 'bluetooth-off'}
-                size={16}
-                color={bleConnected ? COLORS.success : bleStatus === 'scanning' || bleStatus === 'connecting' ? COLORS.warning : COLORS.textMuted}
-              />
-              <Text style={[styles.connectionText, {
-                color: bleConnected ? COLORS.success : bleStatus === 'scanning' || bleStatus === 'connecting' ? COLORS.warning : COLORS.textMuted
-              }]}>
-                {bleConnected ? 'BT: Connected' : bleStatus === 'scanning' ? 'Scanning…' : bleStatus === 'connecting' ? 'Connecting…' : 'BT: Off'}
-              </Text>
-            </TouchableOpacity>
-          </View>
         </View>
-      )}
+
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[
+              styles.connectionBadge,
+              bleConnected ? styles.connectionBadgeConnected : bleStatus === 'scanning' || bleStatus === 'connecting' ? styles.connectionBadgeWarning : styles.connectionBadgeOff
+            ]}
+            onPress={bleConnected ? handleDisconnectWearable : handleConnectWearable}
+            activeOpacity={0.8}
+          >
+            <Icon
+              name={bleConnected ? 'bluetooth-connect' : bleStatus === 'scanning' || bleStatus === 'connecting' ? 'bluetooth-settings' : 'bluetooth-off'}
+              size={15}
+              color={bleConnected ? COLORS.success : bleStatus === 'scanning' || bleStatus === 'connecting' ? COLORS.warning : '#64748B'}
+            />
+            <Text style={[styles.connectionText, {
+              color: bleConnected ? COLORS.success : bleStatus === 'scanning' || bleStatus === 'connecting' ? COLORS.warning : '#64748B'
+            }]}>
+              {bleConnected ? 'BT: On' : bleStatus === 'scanning' ? 'Scan…' : bleStatus === 'connecting' ? 'Wait…' : 'BT: Off'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* 🔴 LOGOUT OPTION 🔴 */}
+          <TouchableOpacity
+            style={styles.headerLogoutBtn}
+            onPress={() => setLogoutModalVisible(true)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            accessibilityLabel="Log out"
+          >
+            <Icon name="logout" size={18} color="#DC2626" />
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {!isOnline && (
         <View style={styles.offlineBanner}>
@@ -838,112 +913,172 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
           </View>
         )}
 
-        {/* DASHBOARD TAB */}
+        {/* DASHBOARD TAB (Tailored for Worker Safety & Vitals) */}
         {activeTab === 'dashboard' && (
           <View style={styles.dashboardContainer}>
-            {/* Header */}
-            <View style={styles.dashHeader}>
-              <View>
-                <Text style={styles.dashWelcome}>Welcome Back</Text>
-                <Text style={styles.dashTitle}>SafetyWorker Feed</Text>
-              </View>
-              <View style={styles.dashAvatarContainer}>
-                <Icon name="account" size={36} color={COLORS.primary} />
-              </View>
-            </View>
 
-            {/* Search and Notif */}
-            <View style={styles.dashSearchRow}>
-              <TouchableOpacity style={styles.dashNotifBtn}>
-                <Icon name="bell-outline" size={24} color={COLORS.primary} />
+            {/* 1. Vibrant Purple Gradient Hero Header (Safety Score, Weather, Live Vitals Stats) */}
+            <LinearGradient
+              colors={['#6C5CE7', '#8B5CF6', '#9333EA']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.refHeroContainer}
+            >
+              {/* Top Bar inside Hero */}
+              <View style={styles.refHeroTopRow}>
+                <View style={styles.refWeatherWidget}>
+                  <Icon name="weather-partly-cloudy" size={16} color="#FFFFFF" />
+                  <Text style={styles.refWeatherText}>
+                    {weather ? `${Math.round(weather.temperature)}°C` : '32°C'}
+                  </Text>
+                </View>
+
+                <Text style={styles.refHeroTitle}>Worker Safety & Vitals</Text>
+
+                <TouchableOpacity
+                  style={styles.refWatchBadge}
+                  onPress={bleConnected ? handleDisconnectWearable : handleConnectWearable}
+                >
+                  <Icon name="watch-variant" size={18} color="#FFFFFF" />
+                  {bleConnected && <View style={styles.refWatchDot} />}
+                </TouchableOpacity>
+              </View>
+
+              {/* Center Semi-Circular Arc Safety Score Gauge */}
+              <ArcProgressGauge
+                currentValue={`${getSafetyScore()}%`}
+                goalValue="100%"
+                label="Safety Score"
+                iconName="shield-check"
+              />
+
+              {/* Worker Live Vitals Stats Bar below Arc */}
+              <View style={styles.refHeroStatsRow}>
+                <View style={styles.refHeroStatItem}>
+                  <Text style={styles.refHeroStatLabel}>HEART RATE</Text>
+                  <Text style={styles.refHeroStatValue}>{bpm} <Text style={styles.refHeroStatUnit}>BPM</Text></Text>
+                </View>
+                <View style={styles.refHeroStatDivider} />
+                <View style={styles.refHeroStatItem}>
+                  <Text style={styles.refHeroStatLabel}>OXYGEN</Text>
+                  <Text style={styles.refHeroStatValue}>{spo2}% <Text style={styles.refHeroStatUnit}>SpO2</Text></Text>
+                </View>
+                <View style={styles.refHeroStatDivider} />
+                <View style={styles.refHeroStatItem}>
+                  <Text style={styles.refHeroStatLabel}>FALL GUARD</Text>
+                  <Text style={styles.refHeroStatValue}>
+                    {movementState === 'Fall Detected' ? 'ALERT' : 'SAFE'}
+                  </Text>
+                </View>
+              </View>
+            </LinearGradient>
+
+            {/* 2. Custom 2x2 Grid Pastel Cards (Worker Safety Metrics) */}
+            <View style={styles.refGridContainer}>
+              {/* Card 1: Fall Guard Card (Peach Pastel Tint) */}
+              <TouchableOpacity
+                style={[styles.refCard, styles.refCardPeach]}
+                onPress={() => setActiveTab('fall')}
+                activeOpacity={0.85}
+              >
+                <View style={styles.refCardHeaderRow}>
+                  <Text style={[styles.refCardTitle, { color: COLORS.cardPeachText }]}>Fall Guard</Text>
+                  <Icon name="shield-alert" size={18} color={COLORS.cardPeachAccent} />
+                </View>
+
+                <View style={styles.refCardCenterBody}>
+                  <View style={styles.refPeachCenterCircle}>
+                    <Text style={[styles.refPeachNumText, movementState === 'Fall Detected' && { color: COLORS.danger }]}>
+                      {movementState === 'Fall Detected' ? 'ALERT' : 'SAFE'}
+                    </Text>
+                  </View>
+                </View>
               </TouchableOpacity>
-              <View style={styles.dashSearchBox}>
-                <Icon name="magnify" size={20} color={COLORS.textMuted} />
-                <TextInput
-                  style={styles.dashSearchInput}
-                  placeholder="Search Tasks..."
-                  placeholderTextColor={COLORS.textMuted}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-              </View>
-            </View>
 
-            {/* Quick Services */}
-            <Text style={styles.dashSectionTitle}>Quick Services</Text>
-            
-            <View style={styles.dashServicesGrid}>
-              <View style={styles.dashServicesRow}>
-                <TouchableOpacity style={styles.dashServiceItem} onPress={() => setActiveTab('health')}>
-                  <View style={styles.dashServiceSquare}>
-                    <Icon name="heart-pulse" size={42} color="#BE185D" />
-                  </View>
-                  <View style={styles.dashServicePill}>
-                    <Text style={[styles.dashServiceLabel, { color: '#4C1D95' }]}>Health{'\n'}Monitoring</Text>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.dashServiceItem} onPress={() => setActiveTab('fall')}>
-                  <View style={styles.dashServiceSquare}>
-                    <Icon name="walk" size={42} color="#059669" />
-                  </View>
-                  <View style={styles.dashServicePill}>
-                    <Text style={[styles.dashServiceLabel, { color: '#4C1D95' }]}>Fall{'\n'}Detection</Text>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.dashServiceItem} onPress={() => setActiveTab('emergency')}>
-                  <View style={styles.dashServiceSquare}>
-                    <Icon name="alert-octagon" size={42} color="#DC2626" />
-                  </View>
-                  <View style={styles.dashServicePill}>
-                    <Text style={[styles.dashServiceLabel, { color: '#4C1D95' }]}>SOS</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              <View style={[styles.dashServicesRow, { justifyContent: 'center', gap: 20 }]}>
-                <TouchableOpacity style={styles.dashServiceItem} onPress={() => setActiveTab('tasks')}>
-                  <View style={styles.dashServiceSquare}>
-                    <Icon name="clipboard-check-outline" size={42} color="#E11D48" />
-                  </View>
-                  <View style={styles.dashServicePill}>
-                    <Text style={[styles.dashServiceLabel, { color: '#4C1D95' }]}>Attendance{'\n'}& Tasks</Text>
-                  </View>
-                </TouchableOpacity>
-                
-                <TouchableOpacity style={styles.dashServiceItem} onPress={() => setActiveTab('weather')}>
-                  <View style={styles.dashServiceSquare}>
-                    <Icon name="weather-partly-cloudy" size={42} color="#0284C7" />
-                  </View>
-                  <View style={styles.dashServicePill}>
-                    <Text style={[styles.dashServiceLabel, { color: '#4C1D95' }]}>Weather</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Posts */}
-            <View style={styles.dashPostsHeader}>
-              <Text style={styles.dashSectionTitle}>Posts</Text>
-              <TouchableOpacity><Text style={styles.dashSeeAll}>See All</Text></TouchableOpacity>
-            </View>
-
-            <View style={styles.dashPostCard}>
-              <View style={styles.dashPostCardHeader}>
-                <View style={styles.dashPostAvatar}>
-                  <Icon name="account" size={24} color="#FFF" />
+              {/* Card 2: Heart Rate Monitor Card (Lilac Pastel Tint + ECG Line) */}
+              <TouchableOpacity
+                style={[styles.refCard, styles.refCardLilac]}
+                onPress={() => setActiveTab('health')}
+                activeOpacity={0.85}
+              >
+                <View style={styles.refCardHeaderRow}>
+                  <Text style={[styles.refCardTitle, { color: COLORS.cardLilacText }]}>Heart Rate</Text>
+                  <Icon name="heart-pulse" size={18} color="#EF4444" />
                 </View>
-                <View style={styles.dashPostMeta}>
-                  <Text style={styles.dashPostAuthor}>Alex Rivera <Text style={styles.dashPostRole}>· Site Supervisor</Text></Text>
-                  <Text style={styles.dashPostSubtitle}>Official Update</Text>
+
+                <EcgWaveform color="#8B5CF6" height={34} />
+
+                <View style={styles.refLilacFooterRow}>
+                  <Text style={styles.refLilacBpmVal}>{bpm}</Text>
+                  <Text style={styles.refLilacBpmUnit}>BPM</Text>
                 </View>
-              </View>
-              <Text style={styles.dashPostContent} numberOfLines={2}>
-                Important Safety Alert: Always double-check your safety harness and anchor points before ascending the tower today due to high wind gusts.
-              </Text>
+              </TouchableOpacity>
+
+              {/* Card 3: Blood Oxygen SpO2 Card (Mint Pastel Tint + Bar Chart) */}
+              <TouchableOpacity
+                style={[styles.refCard, styles.refCardMint]}
+                onPress={() => setActiveTab('health')}
+                activeOpacity={0.85}
+              >
+                <View style={styles.refCardHeaderRow}>
+                  <Text style={[styles.refCardTitle, { color: COLORS.cardMintText }]}>Blood Oxygen</Text>
+                  <Icon name="percent" size={18} color={COLORS.cardMintAccent} />
+                </View>
+
+                <MiniBarChart color="#14B8A6" height={34} />
+
+                <Text style={styles.refMintFooterText}>{spo2}% <Text style={styles.refMintUnit}>SpO2 · Normal</Text></Text>
+              </TouchableOpacity>
+
+              {/* Card 4: Body Temp & Heat Index Card (Amber Pastel Tint + Radial Ring) */}
+              <TouchableOpacity
+                style={[styles.refCard, styles.refCardAmber]}
+                onPress={() => setActiveTab('weather')}
+                activeOpacity={0.85}
+              >
+                <View style={styles.refCardHeaderRow}>
+                  <Text style={[styles.refCardTitle, { color: COLORS.cardAmberText }]}>Body Temp</Text>
+                  <Icon name="thermometer" size={18} color={COLORS.cardAmberAccent} />
+                </View>
+
+                <View style={styles.refCardCenterBody}>
+                  <View style={styles.refAmberRing}>
+                    <Text style={styles.refAmberRingNum}>{bodyTemp}°C</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
             </View>
-            
+
+            {/* 3. Smartwatch Showcase Hero Section (Matching Right Phone Mockup) */}
+            <SmartwatchHeroCard
+              isConnected={bleConnected}
+              onConnectPress={bleConnected ? handleDisconnectWearable : handleConnectWearable}
+            />
+
+            {/* Centered Full-width Horizontal SOS Panic Container */}
+            <TouchableOpacity
+              style={styles.sosFullBanner}
+              onPress={() => setActiveTab('emergency')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.sosBannerCenter}>
+                <View style={styles.sosBannerIconCircle}>
+                  <Icon name="alert-octagon" size={24} color="#DC2626" />
+                </View>
+                <Text style={styles.sosBannerTitle}>SOS Emergency Panic</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* End Shift & Log Out Button */}
+            <TouchableOpacity
+              style={styles.dashboardLogoutBtn}
+              onPress={() => setLogoutModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Icon name="logout" size={20} color="#DC2626" style={{ marginRight: 8 }} />
+              <Text style={styles.dashboardLogoutBtnTxt}>CLOCK OUT & LOG OUT</Text>
+            </TouchableOpacity>
+
           </View>
         )}
 
@@ -956,7 +1091,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleContainer}>
                   <Icon name="bluetooth" size={22} color={bleConnected ? COLORS.success : COLORS.primaryLight} />
-                  <Text style={styles.cardTitle}>ESP32-S3 SafetyBand</Text>
+                  <Text style={styles.cardTitle}>Wearable Connection</Text>
                 </View>
                 <View style={[GLOBAL_STYLES.badge, {
                   backgroundColor: bleConnected ? COLORS.successBg
@@ -978,12 +1113,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                 </View>
               </View>
 
-              <Text style={styles.cardSubtitle}>
-                {bleConnected
-                  ? 'Receiving live MAX30102 (HR, SpO2) and BMI160 (fall) data from wearable.'
-                  : 'Connect to your ESP32-S3 wearable band to receive real sensor data. Make sure the device is powered on and Bluetooth is enabled on your phone.'}
-              </Text>
-
               <View style={styles.bleButtonRow}>
                 {bleConnected ? (
                   <TouchableOpacity style={[styles.bleBtn, styles.bleBtnDisconnect]} onPress={handleDisconnectWearable}>
@@ -1003,7 +1132,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                       <Icon name="bluetooth-connect" size={16} color={COLORS.text} style={{ marginRight: 6 }} />
                     )}
                     <Text style={styles.bleBtnText}>
-                      {bleStatus === 'scanning' ? 'Scanning for SafetyBand…'
+                      {bleStatus === 'scanning' ? 'Scanning…'
                         : bleStatus === 'connecting' ? 'Connecting…'
                         : 'Connect Wearable'}
                     </Text>
@@ -1015,32 +1144,16 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               <View style={styles.sensorPillsRow}>
                 <View style={[styles.sensorPill, bleConnected && { borderColor: COLORS.danger }]}>
                   <Icon name="heart-pulse" size={13} color={bleConnected ? COLORS.danger : COLORS.textMuted} />
-                  <Text style={[styles.sensorPillText, bleConnected && { color: COLORS.danger }]}>MAX30102 HR</Text>
+                  <Text style={[styles.sensorPillText, bleConnected && { color: COLORS.danger }]}>Heart Rate</Text>
                 </View>
                 <View style={[styles.sensorPill, bleConnected && { borderColor: COLORS.success }]}>
                   <Icon name="percent" size={13} color={bleConnected ? COLORS.success : COLORS.textMuted} />
-                  <Text style={[styles.sensorPillText, bleConnected && { color: COLORS.success }]}>MAX30102 SpO2</Text>
+                  <Text style={[styles.sensorPillText, bleConnected && { color: COLORS.success }]}>Blood Oxygen</Text>
                 </View>
                 <View style={[styles.sensorPill, bleConnected && { borderColor: COLORS.warning }]}>
                   <Icon name="run" size={13} color={bleConnected ? COLORS.warning : COLORS.textMuted} />
-                  <Text style={[styles.sensorPillText, bleConnected && { color: COLORS.warning }]}>BMI160 IMU</Text>
+                  <Text style={[styles.sensorPillText, bleConnected && { color: COLORS.warning }]}>Motion IMU</Text>
                 </View>
-              </View>
-
-              {/* Data source indicator */}
-              <View style={styles.dataSourceRow}>
-                <Icon
-                  name={bleConnected ? 'chip' : 'monitor-shimmer'}
-                  size={12}
-                  color={COLORS.textMuted}
-                />
-                <Text style={styles.dataSourceText}>
-                  {bleConnected
-                    ? 'Source: Live BLE (ESP32-S3)'
-                    : isHardwareActive
-                    ? 'Source: Live Hardware (Wi-Fi/GSM)'
-                    : 'Source: Standby / Connecting to ESP32'}
-                </Text>
               </View>
             </View>
 
@@ -1049,7 +1162,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleContainer}>
                   <Icon name="heart-pulse" size={22} color={COLORS.danger} />
-                  <Text style={styles.cardTitle}>MAX30102 Health Vitals</Text>
+                  <Text style={styles.cardTitle}>Health Vitals</Text>
                 </View>
                 <View style={[GLOBAL_STYLES.badge, { backgroundColor: healthStatus === 'Normal' ? COLORS.successBg : COLORS.dangerBg }]}>
                   <Text style={[GLOBAL_STYLES.badgeText, { color: healthStatus === 'Normal' ? COLORS.success : COLORS.danger, marginLeft: 0 }]}>
@@ -1077,17 +1190,8 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                   </View>
                 </View>
 
-                {/* Cadence Checkin */}
+                {/* Force Checkin */}
                 <View style={styles.cadenceCheckin}>
-                  <Text style={styles.cadenceTitle}>CADENCE CONTROL</Text>
-                  <View style={styles.cadenceBullet}>
-                    <View style={styles.bulletDot} />
-                    <Text style={styles.cadenceTxt}>ESP32 Sample: 5s</Text>
-                  </View>
-                  <View style={styles.cadenceBullet}>
-                    <View style={styles.bulletDot} />
-                    <Text style={styles.cadenceTxt}>DB Sync: 10s</Text>
-                  </View>
                   <TouchableOpacity style={styles.forceCheckinBtn} onPress={handleManualCheckIn} disabled={loadingVitals}>
                     {loadingVitals ? (
                       <ActivityIndicator size="small" color={COLORS.textSecondary} />
@@ -1107,21 +1211,19 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleContainer}>
                   <Icon name="sine-wave" size={22} color={COLORS.primaryLight} />
-                  <Text style={styles.cardTitle}>MAX30102 Raw PPG Waveform</Text>
+                  <Text style={styles.cardTitle}>Live Pulse Waveform</Text>
                 </View>
                 <View style={[GLOBAL_STYLES.badge, { backgroundColor: COLORS.primaryBg }]}>
                   <Text style={[GLOBAL_STYLES.badgeText, { color: COLORS.primaryLight, marginLeft: 0 }]}>Live Signal</Text>
                 </View>
               </View>
               
-              <Text style={styles.cardSubtitle}>Moving-average low-pass filter active. Peak detection marker (●) on heart pulse waveform.</Text>
-              
-              {/* PPG graph canvas mock */}
+              {/* PPG graph canvas */}
               <View style={styles.ppgCanvas}>
                 <View style={styles.ppgPointsContainer}>
                   {ppgPoints.map((val, idx) => {
                     const height = val * 2;
-                    const isPeak = val > 26; // Peak detection trigger threshold simulation
+                    const isPeak = val > 26;
                     return (
                       <View key={idx} style={styles.ppgBarContainer}>
                         {isPeak && <View style={styles.ppgPeakDot} />}
@@ -1138,7 +1240,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleContainer}>
                   <Icon name="thermometer-alert" size={22} color={bpm > 115 ? COLORS.danger : COLORS.warning} />
-                  <Text style={styles.cardTitle}>Thermal Strain & Heat Stress Index</Text>
+                  <Text style={styles.cardTitle}>Heat & Stress Monitor</Text>
                 </View>
                 <View style={[
                   GLOBAL_STYLES.badge,
@@ -1152,10 +1254,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                   </Text>
                 </View>
               </View>
-
-              <Text style={styles.cardSubtitle}>
-                Fuses Heart Rate, SpO2, and Ambient Climate to prevent heat stroke and over-exertion at work.
-              </Text>
 
               <View style={[
                 styles.safetyNoticeBox,
@@ -1183,10 +1281,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
 
             {/* Threshold Health Alerting Controls */}
             <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
-              <Text style={styles.sectionHeader}>Threshold Alert Simulation</Text>
-              <Text style={styles.cardSubtitle}>
-                Safe ranges: HR 60–140 bpm, SpO2 &gt; 92%. Requiring **3 consecutive abnormal readings** to prevent false alarms due to noise artifacts.
-              </Text>
+              <Text style={styles.sectionHeader}>Alert Simulation</Text>
               
               <View style={styles.anomalyMeterBox}>
                 <Text style={styles.anomalyMeterLabel}>Consecutive Abnormal Samples: </Text>
@@ -1196,21 +1291,16 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               </View>
 
               <View style={styles.alertSimBtnRow}>
-                <TouchableOpacity style={[styles.simActionBtn, { borderColor: COLORS.warning }]} onPress={triggerSingleNoisySpike}>
-                  <Text style={[styles.simActionBtnText, { color: COLORS.warning }]}>Simulate 1x Vitals Spike</Text>
+                <TouchableOpacity style={[styles.simActionBtn, styles.simActionBtnWarning]} onPress={triggerSingleNoisySpike} activeOpacity={0.8}>
+                  <Text style={[styles.simActionBtnText, { color: '#D97706' }]}>Simulate 1x Vitals Spike</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.simActionBtn, { borderColor: COLORS.danger }]} onPress={triggerSustainedCritical}>
-                  <Text style={[styles.simActionBtnText, { color: COLORS.danger }]}>Simulate 3x Sustained</Text>
+                <TouchableOpacity style={[styles.simActionBtn, styles.simActionBtnDanger]} onPress={triggerSustainedCritical} activeOpacity={0.8}>
+                  <Text style={[styles.simActionBtnText, { color: '#DC2626' }]}>Simulate 3x Sustained</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Historical Trend Vitals Graph */}
-            <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
-              <Text style={styles.sectionHeader}>Vitals History Log</Text>
-              <Text style={styles.cardSubtitle}>Pulled from Database server (Last Hour history graph)</Text>
-              {renderHistoryGraph()}
-            </View>
+
           </View>
         )}
 
@@ -1231,8 +1321,17 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               </View>
 
               <View style={styles.movementBody}>
-                <Text style={styles.movementDetailLabel}>BMI160 IMU Wearable Status:</Text>
-                <View style={styles.movementStatusPanel}>
+                <View style={[
+                  styles.movementStatusPanel,
+                  movementState === 'Active' ? styles.movementStatusPanelActive : movementState === 'Idle' ? styles.movementStatusPanelIdle : styles.movementStatusPanelFall
+                ]}>
+                  <View style={styles.movementStatusIconCircle}>
+                    <Icon
+                      name={movementState === 'Active' ? 'walk' : movementState === 'Idle' ? 'pause-circle' : 'alert-octagon'}
+                      size={22}
+                      color="#FFFFFF"
+                    />
+                  </View>
                   <Text style={styles.movementStatusText}>
                     {movementState === 'Active' ? `Technician is moving (${movementActivity})` : movementState === 'Idle' ? 'No movement detected (Stationary/Idle state)' : 'IMU SUSPECT FALL DETECTED'}
                   </Text>
@@ -1325,11 +1424,11 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
 
                 <Text style={styles.sectionSubHeader}>Simulate Wearable Fall Events</Text>
                 <View style={styles.simButtonsRow}>
-                  <TouchableOpacity style={[styles.simBtn, { borderColor: COLORS.warning }]} onPress={() => handleSimulateFall('minor')}>
-                    <Text style={[styles.simBtnTxt, { color: COLORS.warning }]}>Minor Jolt</Text>
+                  <TouchableOpacity style={[styles.simBtn, styles.simActionBtnWarning]} onPress={() => handleSimulateFall('minor')} activeOpacity={0.8}>
+                    <Text style={[styles.simBtnTxt, { color: '#D97706' }]}>Minor Jolt</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.simBtn, { borderColor: COLORS.danger }]} onPress={() => handleSimulateFall('confirmed')}>
-                    <Text style={[styles.simBtnTxt, { color: COLORS.danger }]}>Severe Fall</Text>
+                  <TouchableOpacity style={[styles.simBtn, styles.simActionBtnDanger]} onPress={() => handleSimulateFall('confirmed')} activeOpacity={0.8}>
+                    <Text style={[styles.simBtnTxt, { color: '#DC2626' }]}>Severe Fall</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1337,71 +1436,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
           </View>
         )}
 
-        {/* TAB 3: ATTENDANCE & TASKS */}
-        {activeTab === 'tasks' && (
-          <View style={styles.tabContent}>
-            <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardTitleContainer}>
-                  <Icon name="clipboard-check" size={22} color={COLORS.info} />
-                  <Text style={styles.cardTitle}>Attendance & Tasks</Text>
-                </View>
-                <TouchableOpacity 
-                  style={[styles.clockBtn, clockedIn ? { backgroundColor: COLORS.warning } : { backgroundColor: COLORS.success }]}
-                  onPress={handleClockToggle}
-                >
-                  <Text style={styles.clockBtnText}>{clockedIn ? 'Clock Out' : 'Clock In'}</Text>
-                </TouchableOpacity>
-              </View>
 
-              <View style={styles.gpsPanel}>
-                <Icon name="map-marker" size={16} color={COLORS.textSecondary} />
-                <Text style={styles.gpsText}>GPS Coordinates: {gpsCoords ? gpsCoords.latitude.toFixed(4) : '--'}, {gpsCoords ? gpsCoords.longitude.toFixed(4) : '--'}</Text>
-              </View>
-
-              <Text style={styles.sectionSubHeader}>Supervisor Assigned Tasks</Text>
-              <View style={styles.taskList}>
-                {tasks.length === 0 ? (
-                  <Text style={styles.emptyText}>No tasks assigned for today.</Text>
-                ) : (
-                  tasks.filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase())).map(task => (
-                    <TouchableOpacity 
-                      key={task.id} 
-                      style={[styles.taskRow, task.status === 'done' && styles.taskRowDone]}
-                      onPress={() => handleTaskStatusCycle(task)}
-                    >
-                      <Icon 
-                        name={task.status === 'done' ? "checkbox-marked-circle" : task.status === 'in_progress' ? "clock" : "checkbox-blank-circle-outline"}
-                        size={20}
-                        color={task.status === 'done' ? COLORS.success : task.status === 'in_progress' ? COLORS.warning : COLORS.textMuted}
-                      />
-                      <Text style={[styles.taskRowTxt, task.status === 'done' && styles.taskRowTxtDone]}>{task.title}</Text>
-                      <View style={[styles.taskRowBadge, task.status === 'done' && styles.taskRowBadge_done]}>
-                        <Text style={styles.taskRowBadgeTxt}>{task.status}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))
-                )}
-              </View>
-
-              <Text style={styles.sectionSubHeader}>Recent Attendance Shifts</Text>
-              <View style={styles.attendanceLog}>
-                {attendanceLogs.length === 0 ? (
-                  <Text style={styles.emptyText}>No shifts logged today.</Text>
-                ) : (
-                  attendanceLogs.slice(-3).reverse().map(log => (
-                    <View key={log.id} style={styles.attendanceLogItem}>
-                      <Icon name={log.action === 'clock_in' ? 'import' : 'export'} size={14} color={COLORS.textSecondary} />
-                      <Text style={styles.attendanceLogTxt}>
-                        {log.action === 'clock_in' ? 'Clocked In' : 'Clocked Out'} at {new Date(log.timestamp).toLocaleTimeString()}
-                      </Text>
-                    </View>
-                  ))
-                )}
-              </View>
-            </View>
-          </View>
-        )}
 
         {/* TAB 4: SOS EMERGENCY PANEL */}
         {activeTab === 'emergency' && (
@@ -1432,7 +1467,9 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                         <View style={styles.alertLogHeader}>
                           <Text style={styles.alertLogTitle}>{alert.type === 'manual' ? 'Manual SOS Panic' : alert.type === 'health' ? 'Health Vitals Danger' : 'Suspected Fall Alert'}</Text>
                           <View style={[GLOBAL_STYLES.badge, { backgroundColor: alert.status === 'active' ? COLORS.dangerBg : COLORS.successBg }]}>
-                            <Text style={[GLOBAL_STYLES.badgeText, { color: alert.status === 'active' ? COLORS.danger : COLORS.success, marginLeft: 0 }]}>{alert.status}</Text>
+                            <Text style={[GLOBAL_STYLES.badgeText, { color: alert.status === 'active' ? COLORS.danger : COLORS.success, marginLeft: 0 }]}>
+                              {alert.status.charAt(0).toUpperCase() + alert.status.slice(1)}
+                            </Text>
                           </View>
                         </View>
                         <Text style={styles.alertLogTime}>Time: {new Date(alert.timestamp).toLocaleString()}</Text>
@@ -1448,48 +1485,141 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         {/* TAB 5: WEATHER & SITE CONDITIONS */}
         {activeTab === 'weather' && (
           <View style={styles.tabContent}>
-            {weather && (
-              <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardTitleContainer}>
-                    <Icon name="weather-partly-cloudy" size={22} color={COLORS.warning} />
-                    <Text style={styles.cardTitle}>Site Weather Conditions</Text>
-                    {weather.locationName && (
-                      <Text style={{ fontSize: 13, color: COLORS.textSecondary, marginLeft: 28, marginTop: -4 }}>{weather.locationName}</Text>
-                    )}
+            {/* Search Bar & Location Refresh Toolbar */}
+            <View style={[GLOBAL_STYLES.glassCard, styles.weatherSearchContainer]}>
+              <View style={styles.weatherSearchRow}>
+                <View style={styles.weatherSearchInputWrapper}>
+                  <Icon name="magnify" size={20} color="#8B5CF6" />
+                  <TextInput
+                    style={styles.weatherSearchInput}
+                    placeholder="Search city or jobsite..."
+                    placeholderTextColor="#94A3B8"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    onSubmitEditing={() => requestLocationAndLoad(searchQuery)}
+                    returnKeyType="search"
+                  />
+                  {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => { setSearchQuery(''); requestLocationAndLoad(); }}>
+                      <Icon name="close-circle" size={18} color="#94A3B8" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={styles.weatherGpsBtn}
+                  onPress={() => {
+                    setSearchQuery('');
+                    requestLocationAndLoad();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Icon name="crosshairs-gps" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {(loadingWeather || gpsLoading) && !weather ? (
+              <View style={{ padding: 40, alignItems: 'center', justifyContent: 'center' }}>
+                <ActivityIndicator size="large" color="#6C5CE7" />
+                <Text style={{ marginTop: 12, color: COLORS.textSecondary, fontWeight: '600' }}>Updating site weather...</Text>
+              </View>
+            ) : weather ? (
+              <>
+                {/* Header: Site Weather & Safety Status */}
+                <View style={[GLOBAL_STYLES.glassCard, styles.card, styles.refCardPeach]}>
+                  <View style={styles.cardHeader}>
+                    <View style={styles.cardTitleContainer}>
+                      <Icon name="weather-partly-cloudy" size={22} color={COLORS.warning} />
+                      <Text style={styles.cardTitle}>Site Weather Conditions</Text>
+                      {weather.locationName && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 28, marginTop: -2, gap: 4 }}>
+                          <Icon name="map-marker" size={14} color="#EA580C" />
+                          <Text style={{ fontSize: 13, color: '#C2410C', fontWeight: '700' }}>
+                            {weather.locationName}{weather.country ? `, ${weather.country}` : ''}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <View style={[GLOBAL_STYLES.badge, { backgroundColor: weather.safeToWork ? COLORS.successBg : COLORS.dangerBg }]}>
+                      <Text style={[GLOBAL_STYLES.badgeText, { color: weather.safeToWork ? COLORS.success : COLORS.danger, marginLeft: 0 }]}>
+                        {weather.safeToWork ? 'Safe to Work' : 'Work Suspended'}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={[GLOBAL_STYLES.badge, { backgroundColor: weather.safeToWork ? COLORS.successBg : COLORS.dangerBg }]}>
-                    <Text style={[GLOBAL_STYLES.badgeText, { color: weather.safeToWork ? COLORS.success : COLORS.danger, marginLeft: 0 }]}>
-                      {weather.safeToWork ? 'Safe to Work' : 'Work Suspended'}
+                  {weather.description && (
+                    <Text style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 4, marginLeft: 28 }}>
+                      Condition: <Text style={{ fontWeight: '700', color: COLORS.text }}>{weather.description}</Text>
                     </Text>
-                  </View>
+                  )}
                 </View>
 
-                <View style={styles.weatherStatGrid}>
-                  <View style={styles.weatherCardCell}>
-                    <Text style={styles.weatherCellLabel}>TEMP</Text>
-                    <Text style={styles.weatherCellVal}>{weather.temperature}°C</Text>
+                {/* 1. Full-Width Container: Temperature */}
+                <View style={[GLOBAL_STYLES.glassCard, styles.weatherFullContainer, styles.refCardAmber]}>
+                  <View style={styles.weatherItemLeft}>
+                    <View style={[styles.weatherIconCircle, { backgroundColor: 'rgba(255, 255, 255, 0.88)' }]}>
+                      <Icon name="thermometer" size={24} color="#D97706" />
+                    </View>
+                    <View>
+                      <Text style={[styles.weatherItemTitle, { color: COLORS.cardAmberText }]}>Temperature</Text>
+                      <Text style={styles.weatherItemSub}>
+                        Feels like {weather.feelsLike ?? weather.temperature}°C
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.weatherCardCell}>
-                    <Text style={styles.weatherCellLabel}>WIND</Text>
-                    <Text style={[styles.weatherCellVal, weather.windSpeed > 22 && { color: COLORS.danger }]}>{weather.windSpeed} kn</Text>
-                  </View>
-                  <View style={styles.weatherCardCell}>
-                    <Text style={styles.weatherCellLabel}>PRECIPITATION</Text>
-                    <Text style={styles.weatherCellVal}>{weather.precipitation} mm</Text>
-                  </View>
+                  <Text style={[styles.weatherItemValue, { color: '#B45309' }]}>{weather.temperature}°C</Text>
                 </View>
 
-                {weather.hazards.length > 0 && (
+                {/* 2. Full-Width Container: Wind Speed */}
+                <View style={[GLOBAL_STYLES.glassCard, styles.weatherFullContainer, styles.refCardMint]}>
+                  <View style={styles.weatherItemLeft}>
+                    <View style={[styles.weatherIconCircle, { backgroundColor: 'rgba(255, 255, 255, 0.88)' }]}>
+                      <Icon name="weather-windy" size={24} color="#2563EB" />
+                    </View>
+                    <View>
+                      <Text style={[styles.weatherItemTitle, { color: COLORS.cardMintText }]}>Wind Speed</Text>
+                      <Text style={styles.weatherItemSub}>
+                        {weather.windSpeedKnots ?? Math.round((weather.windSpeedKmH ?? weather.windSpeed) * 0.54)} kn · {weather.windSpeedMs ?? ((weather.windSpeedKmH ?? weather.windSpeed) / 3.6).toFixed(1)} m/s
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.weatherItemValue, { color: '#0F766E' }, (weather.windSpeedKmH ?? weather.windSpeed) > 38 && { color: COLORS.danger }]}>
+                    {weather.windSpeedKmH ?? weather.windSpeed} km/h
+                  </Text>
+                </View>
+
+                {/* 3. Full-Width Container: Rainfall */}
+                <View style={[GLOBAL_STYLES.glassCard, styles.weatherFullContainer, styles.refCardLilac]}>
+                  <View style={styles.weatherItemLeft}>
+                    <View style={[styles.weatherIconCircle, { backgroundColor: 'rgba(255, 255, 255, 0.88)' }]}>
+                      <Icon name="weather-rainy" size={24} color="#0D9488" />
+                    </View>
+                    <View>
+                      <Text style={[styles.weatherItemTitle, { color: COLORS.cardLilacText }]}>Rainfall</Text>
+                      <Text style={styles.weatherItemSub}>
+                        Humidity: {weather.humidity}% · {weather.description}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.weatherItemValue, { color: '#6D28D9' }]}>{weather.precipitation} mm</Text>
+                </View>
+
+                {weather.hazards && weather.hazards.length > 0 && (
                   <View style={styles.weatherWarningBox}>
                     <Icon name="weather-lightning" size={18} color={COLORS.danger} style={{ marginRight: 6 }} />
                     <Text style={styles.weatherWarningText}>Active Hazards: {weather.hazards.join(', ')}</Text>
                   </View>
                 )}
-                
-                <Text style={styles.weatherRecommendationText}>Recommendation: {weather.recommendation}</Text>
-              </View>
-            )}
+
+                {weather.recommendation && (
+                  <View style={[styles.safetyNoticeBox, { marginTop: 10 }]}>
+                    <Icon name="shield-check" size={18} color={weather.safeToWork ? '#059669' : '#DC2626'} style={{ marginRight: 8 }} />
+                    <Text style={[styles.safetyNoticeTxt, { color: weather.safeToWork ? '#065F46' : '#991B1B' }]}>
+                      {weather.recommendation}
+                    </Text>
+                  </View>
+                )}
+              </>
+            ) : null}
           </View>
         )}
       </ScrollView>
@@ -1504,7 +1634,9 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         <View style={styles.modalOverlay}>
           <View style={styles.fallModalContent}>
             <View style={styles.fallModalHeader}>
-              <Icon name="alert-octagon" size={54} color={COLORS.danger} />
+              <View style={styles.fallModalIconCircle}>
+                <Icon name="alert-octagon" size={40} color="#DC2626" />
+              </View>
               <Text style={styles.fallModalTitle}>🚨 FALL IMPACT DETECTED! 🚨</Text>
             </View>
 
@@ -1520,21 +1652,23 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
 
             <View style={styles.fallModalActionRow}>
               <TouchableOpacity
-                style={[styles.fallModalBtn, { backgroundColor: COLORS.success }]}
+                style={[styles.fallModalBtn, styles.fallModalBtnSafe]}
                 onPress={() => {
                   setFallModalVisible(false);
                   setMovementState('Active');
                 }}
+                activeOpacity={0.8}
               >
                 <Text style={styles.fallModalBtnTxt}>I AM SAFE (DISMISS)</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.fallModalBtn, { backgroundColor: COLORS.danger }]}
+                style={[styles.fallModalBtn, styles.fallModalBtnSos]}
                 onPress={() => {
                   setFallModalVisible(false);
                   setActiveTab('emergency');
                 }}
+                activeOpacity={0.8}
               >
                 <Text style={styles.fallModalBtnTxt}>CALL SOS HELP</Text>
               </TouchableOpacity>
@@ -1543,20 +1677,84 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         </View>
       </Modal>
 
-      {/* BOTTOM NAVIGATION TAB BAR WITH 4 ICONS (Dashboard style) */}
+      {/* 🔴 LOGOUT CONFIRMATION MODAL 🔴 */}
+      <Modal
+        visible={logoutModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setLogoutModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.logoutModalContent}>
+            <View style={styles.logoutModalHeader}>
+              <View style={styles.logoutModalIconCircle}>
+                <Icon name="logout" size={32} color="#DC2626" />
+              </View>
+              <Text style={styles.logoutModalTitle}>Confirm Log Out</Text>
+            </View>
+
+            <Text style={styles.logoutModalBodyText}>
+              Are you sure you want to log out, <Text style={{ fontWeight: '800', color: '#1E1B4B' }}>{user.name}</Text>?
+              {'\n\n'}Your shift attendance will be recorded and you will be clocked out automatically.
+            </Text>
+
+            <View style={styles.logoutModalActionRow}>
+              <TouchableOpacity
+                style={[styles.logoutModalBtn, styles.logoutModalBtnCancel]}
+                onPress={() => setLogoutModalVisible(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.logoutModalBtnCancelTxt}>CANCEL</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.logoutModalBtn, styles.logoutModalBtnConfirm]}
+                onPress={handlePerformLogout}
+                activeOpacity={0.8}
+                disabled={isLoggingOut}
+              >
+                {isLoggingOut ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.logoutModalBtnConfirmTxt}>LOG OUT</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* FLOATING BOTTOM NAVIGATION TAB BAR */}
       <View style={styles.dashBottomNav}>
         <View style={styles.dashBottomNavContent}>
-          <TouchableOpacity style={styles.dashNavItem} onPress={() => setActiveTab('dashboard')}>
-            <Icon name="home" size={28} color={activeTab === 'dashboard' ? '#4C1D95' : '#7C3AED'} />
+          <TouchableOpacity
+            style={[styles.dashNavItem, activeTab === 'dashboard' && styles.dashNavItemActive]}
+            onPress={() => setActiveTab('dashboard')}
+          >
+            <Icon name="home-variant" size={24} color={activeTab === 'dashboard' ? '#FFFFFF' : '#8B5CF6'} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.dashNavItem} onPress={() => setActiveTab('tasks')}>
-            <Icon name="history" size={28} color={activeTab === 'tasks' ? '#4C1D95' : '#7C3AED'} />
+
+          <TouchableOpacity
+            style={[styles.dashNavItem, activeTab === 'health' && styles.dashNavItemActive]}
+            onPress={() => setActiveTab('health')}
+          >
+            <Icon name="heart-pulse" size={24} color={activeTab === 'health' ? '#FFFFFF' : '#8B5CF6'} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.dashNavItem} onPress={() => setActiveTab('emergency')}>
-            <Icon name="plus" size={28} color="#7C3AED" />
+
+          <TouchableOpacity
+            style={[styles.dashNavItem, activeTab === 'fall' && styles.dashNavItemActive]}
+            onPress={() => setActiveTab('fall')}
+          >
+            <Icon name="walk" size={24} color={activeTab === 'fall' ? '#FFFFFF' : '#8B5CF6'} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.dashNavItem} onPress={() => onLogout(gpsCoords ? gpsCoords : undefined)}>
-            <Icon name="account" size={28} color="#7C3AED" />
+
+
+
+          <TouchableOpacity
+            style={[styles.dashNavItem, activeTab === 'emergency' && styles.dashNavItemActive]}
+            onPress={() => setActiveTab('emergency')}
+          >
+            <Icon name="alert-octagon" size={24} color={activeTab === 'emergency' ? '#FFFFFF' : '#EF4444'} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1576,9 +1774,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1.5,
+    borderBottomColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 10,
+    zIndex: 999,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } : {}),
   },
   userName: {
     color: COLORS.text,
@@ -1604,22 +1809,165 @@ const styles = StyleSheet.create({
   connectionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.2)',
-    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' } : {}),
+  },
+  connectionBadgeOff: {
+    backgroundColor: 'rgba(255, 255, 255, 0.78)',
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  connectionBadgeConnected: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+  },
+  connectionBadgeWarning: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderColor: 'rgba(245, 158, 11, 0.4)',
   },
   connectionText: {
-    fontSize: TYPOGRAPHY.sizes.xs - 1,
-    marginLeft: 4,
-    fontWeight: TYPOGRAPHY.weights.medium,
+    fontSize: 12,
+    marginLeft: 5,
+    fontWeight: '800',
   },
   logoutButton: {
     padding: 6,
     borderRadius: 8,
     backgroundColor: COLORS.surfaceLight,
+  },
+  headerLogoutBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(254, 226, 226, 0.95)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  headerAvatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dashboardLogoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(254, 226, 226, 0.9)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginTop: 14,
+    marginBottom: 20,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  dashboardLogoutBtnTxt: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  logoutModalContent: {
+    width: '88%',
+    maxWidth: 380,
+    borderRadius: 28,
+    padding: 24,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  logoutModalHeader: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  logoutModalIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(254, 226, 226, 0.95)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  logoutModalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1E1B4B',
+  },
+  logoutModalBodyText: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 22,
+  },
+  logoutModalActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  logoutModalBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutModalBtnCancel: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  logoutModalBtnCancelTxt: {
+    color: '#475569',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  logoutModalBtnConfirm: {
+    backgroundColor: '#DC2626',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  logoutModalBtnConfirmTxt: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   tabContent: {
     gap: 16,
@@ -1795,12 +2143,18 @@ const styles = StyleSheet.create({
   },
   ppgCanvas: {
     height: 90,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: 'rgba(240, 235, 255, 0.75)',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     paddingHorizontal: 8,
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' } : {}),
   },
   ppgPointsContainer: {
     flexDirection: 'row',
@@ -1855,15 +2209,51 @@ const styles = StyleSheet.create({
   },
   simActionBtn: {
     flex: 1,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 8,
+    borderWidth: 1.5,
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.01)',
+    justifyContent: 'center',
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } : {}),
+  },
+  simActionBtnWarning: {
+    backgroundColor: 'rgba(255, 251, 235, 0.85)',
+    borderColor: 'rgba(245, 158, 11, 0.6)',
+  },
+  simActionBtnDanger: {
+    backgroundColor: 'rgba(254, 242, 242, 0.85)',
+    borderColor: 'rgba(239, 68, 68, 0.6)',
   },
   simActionBtnText: {
-    fontSize: TYPOGRAPHY.sizes.xs,
-    fontWeight: TYPOGRAPHY.weights.bold,
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  simBtn: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } : {}),
+  },
+  simBtnTxt: {
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   techBullet: {
     flexDirection: 'row',
@@ -1885,80 +2275,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 14,
   },
-  historyChartContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.15)',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    justifyContent: 'flex-end',
-    position: 'relative',
-    marginTop: 8,
-  },
-  gridLine: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
-    height: 1,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  gridLineText: {
-    color: COLORS.textMuted,
-    fontSize: 7,
-    position: 'absolute',
-    right: 0,
-    bottom: 2,
-  },
-  pointsOverlay: {
-    position: 'absolute',
-    left: 12,
-    right: 32,
-    top: 12,
-    bottom: 40,
-  },
-  chartPoint: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    position: 'absolute',
-  },
-  chartLegend: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingTop: 6,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  legendText: {
-    color: COLORS.text,
-    fontSize: 9,
-    fontWeight: TYPOGRAPHY.weights.medium,
-  },
-  legendTime: {
-    color: COLORS.textMuted,
-    fontSize: 8,
-  },
-  chartFallback: {
-    color: COLORS.textMuted,
-    fontSize: TYPOGRAPHY.sizes.xs,
-    textAlign: 'center',
-    paddingVertical: 40,
-  },
+
 
   // Tab 2 details
   movementBody: {
@@ -1969,29 +2286,67 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.xs,
   },
   movementStatusPanel: {
-    backgroundColor: COLORS.surfaceLight,
-    padding: 12,
-    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 28,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.55)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 18,
+    elevation: 8,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(24px) saturate(200%)', WebkitBackdropFilter: 'blur(24px) saturate(200%)' } : {}),
+  },
+  movementStatusPanelActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.82)',
+    shadowColor: '#10B981',
+    shadowOpacity: 0.28,
+  },
+  movementStatusPanelIdle: {
+    backgroundColor: 'rgba(108, 92, 231, 0.82)',
+    shadowColor: '#6C5CE7',
+    shadowOpacity: 0.28,
+  },
+  movementStatusPanelFall: {
+    backgroundColor: 'rgba(239, 68, 68, 0.88)',
+    shadowColor: '#EF4444',
+    shadowOpacity: 0.3,
+  },
+  movementStatusIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   movementStatusText: {
-    color: COLORS.text,
-    fontSize: TYPOGRAPHY.sizes.sm,
-    fontWeight: TYPOGRAPHY.weights.semibold,
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    marginLeft: 12,
+    textAlign: 'center',
   },
   fallLogDetail: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.02)',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     padding: 8,
-    borderRadius: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
   },
   fallHistoryDesc: {
     color: COLORS.textSecondary,
     fontSize: TYPOGRAPHY.sizes.xs,
   },
   sectionSubHeader: {
-    color: COLORS.text,
+    color: '#4C1D95',
     fontSize: TYPOGRAPHY.sizes.sm,
     fontWeight: TYPOGRAPHY.weights.bold,
     marginTop: 8,
@@ -1999,18 +2354,6 @@ const styles = StyleSheet.create({
   simButtonsRow: {
     flexDirection: 'row',
     gap: 10,
-  },
-  simBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 8,
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-  },
-  simBtnTxt: {
-    fontSize: TYPOGRAPHY.sizes.xs,
-    fontWeight: TYPOGRAPHY.weights.semibold,
   },
 
   // Tab 3 details
@@ -2139,66 +2482,264 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   alertLogItem: {
-    backgroundColor: COLORS.surfaceLight,
-    padding: 10,
-    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.78)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 10,
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 4,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } : {}),
   },
   alertLogHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   alertLogTitle: {
-    color: COLORS.text,
-    fontSize: TYPOGRAPHY.sizes.sm,
-    fontWeight: TYPOGRAPHY.weights.bold,
+    color: '#1E1B4B',
+    fontSize: 15,
+    fontWeight: '800',
   },
   alertLogTime: {
-    color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.sizes.xs,
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
   },
 
   // Tab 5 Weather Details
-  weatherStatGrid: {
+  weatherSearchContainer: {
+    padding: 8,
+    marginBottom: 14,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+  },
+  weatherSearchRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 8,
-  },
-  weatherCardCell: {
-    flex: 1,
-    backgroundColor: COLORS.surfaceLight,
-    padding: 10,
-    borderRadius: 10,
     alignItems: 'center',
+    gap: 10,
   },
-  weatherCellLabel: {
-    color: COLORS.textMuted,
-    fontSize: 8,
-    fontWeight: TYPOGRAPHY.weights.bold,
+  weatherSearchInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    height: 44,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(108, 92, 231, 0.2)',
   },
-  weatherCellVal: {
-    color: COLORS.text,
-    fontSize: TYPOGRAPHY.sizes.base,
-    fontWeight: TYPOGRAPHY.weights.bold,
-    marginTop: 4,
+  weatherSearchInput: {
+    flex: 1,
+    height: '100%',
+    color: '#1E1B4B',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  weatherGpsBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#6C5CE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  weatherFullContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    borderRadius: 24,
+    paddingVertical: 20,
+    paddingHorizontal: 22,
+    marginBottom: 16,
+    minHeight: 100,
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    elevation: 5,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } : {}),
+  },
+  weatherItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  weatherIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' } : {}),
+  },
+  weatherItemTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E1B4B',
+  },
+  weatherItemSub: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  weatherItemValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#4C1D95',
   },
   weatherWarningBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.dangerBg,
-    padding: 8,
-    borderRadius: 8,
-    marginTop: 10,
+    padding: 12,
+    borderRadius: 14,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.2)',
   },
   weatherWarningText: {
     color: COLORS.danger,
     fontSize: TYPOGRAPHY.sizes.xs,
+    fontWeight: TYPOGRAPHY.weights.semibold,
   },
-  weatherRecommendationText: {
-    color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.sizes.xs,
-    marginTop: 10,
+
+  // Fall Impact Pop-up Glass Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' } : {}),
+  },
+  fallModalContent: {
+    width: '94%',
+    maxWidth: 440,
+    borderRadius: 32,
+    padding: 26,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    borderWidth: 2,
+    borderColor: 'rgba(239, 68, 68, 0.6)',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    elevation: 12,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(28px) saturate(190%)', WebkitBackdropFilter: 'blur(28px) saturate(190%)' } : {}),
+  },
+  fallModalHeader: {
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  fallModalIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(254, 242, 242, 0.95)',
+    borderWidth: 2,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  fallModalTitle: {
+    color: '#DC2626',
+    fontSize: 20,
+    fontWeight: '900',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  fallModalBodyText: {
+    color: '#334155',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 21,
+    marginBottom: 18,
+  },
+  fallModalDetailsBox: {
+    width: '100%',
+    backgroundColor: 'rgba(245, 240, 255, 0.85)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 22,
+    gap: 8,
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' } : {}),
+  },
+  fallModalDetailTxt: {
+    color: '#4C1D95',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  fallModalActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  fallModalBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    shadowOpacity: 0.2,
+    elevation: 4,
+  },
+  fallModalBtnSafe: {
+    backgroundColor: 'rgba(16, 185, 129, 0.92)',
+    shadowColor: '#10B981',
+  },
+  fallModalBtnSos: {
+    backgroundColor: 'rgba(239, 68, 68, 0.95)',
+    shadowColor: '#EF4444',
+  },
+  fallModalBtnTxt: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
 
   // Fall countdown Warning Overlay
@@ -2368,31 +2909,51 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 16,
   },
-  dashServicesGrid: {
-    marginBottom: 30,
-    gap: 20,
-  },
-  dashServicesRow: {
+  sosFullBanner: {
+    width: '100%',
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  dashServiceItem: {
     alignItems: 'center',
-    width: 100,
-  },
-  dashServiceSquare: {
-    width: 90,
-    height: 90,
-    borderRadius: 24,
-    backgroundColor: '#E0E7FF',
     justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#4C1D95',
+    backgroundColor: 'rgba(254, 226, 226, 0.78)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 24,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    shadowColor: '#EF4444',
     shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 4,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } : {}),
+  },
+  sosBannerCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  sosBannerIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5,
-    marginBottom: 10,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  sosBannerTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#991B1B',
+    letterSpacing: 0.3,
   },
   dashServicePill: {
     backgroundColor: '#F3E8FF',
@@ -2471,19 +3032,23 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   dashBottomNavContent: {
-    backgroundColor: '#FDFBFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.48)',
     height: 70,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    borderBottomWidth: 0,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingBottom: Platform.OS === 'ios' ? 20 : 0,
-    shadowColor: '#4C1D95',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 10,
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.22,
+    shadowRadius: 28,
+    elevation: 20,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(32px) saturate(220%)', WebkitBackdropFilter: 'blur(32px) saturate(220%)' } : {}),
   },
   dashNavItem: {
     padding: 10,
@@ -2496,31 +3061,43 @@ const styles = StyleSheet.create({
   },
   gyroBox: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    padding: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.78)',
+    borderRadius: 14,
+    padding: 12,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' } : {}),
   },
   gyroAxisLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: COLORS.textMuted,
+    color: '#64748B',
     marginBottom: 4,
   },
   gyroValueText: {
     fontSize: 15,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: '#6D28D9',
   },
   heightPanel: {
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    borderRadius: 14,
-    padding: 14,
-    marginVertical: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(245, 240, 255, 0.85)',
+    borderRadius: 18,
+    padding: 16,
+    marginVertical: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' } : {}),
   },
   heightHeaderRow: {
     flexDirection: 'row',
@@ -2529,9 +3106,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   heightTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    color: COLORS.textSecondary,
+    color: '#4C1D95',
   },
   heightValueBig: {
     fontSize: 22,
@@ -2539,9 +3116,10 @@ const styles = StyleSheet.create({
     color: COLORS.success,
   },
   heightSubtext: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    marginTop: 2,
+    fontSize: 12,
+    color: '#6D28D9',
+    marginTop: 4,
+    lineHeight: 17,
   },
   safetyNoticeBox: {
     flexDirection: 'row',
@@ -2556,75 +3134,265 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
+
+  // ── Reference Image Interface Styles ──
+  refHeroContainer: {
+    borderRadius: 32,
     padding: 20,
-  },
-  fallModalContent: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: '#0F172A',
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 2,
-    borderColor: COLORS.danger,
+    marginBottom: 16,
     alignItems: 'center',
-    shadowColor: COLORS.danger,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 20,
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 18,
+    elevation: 10,
   },
-  fallModalHeader: {
+  refHeroTopRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 14,
-    gap: 8,
+    position: 'relative',
+    minHeight: 36,
   },
-  fallModalTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.danger,
-    textAlign: 'center',
-    marginTop: 6,
-  },
-  fallModalBodyText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  fallModalDetailsBox: {
-    width: '100%',
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 20,
-    gap: 6,
-  },
-  fallModalDetailTxt: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  fallModalActionRow: {
+  refWeatherWidget: {
+    position: 'absolute',
+    left: 0,
     flexDirection: 'row',
-    gap: 12,
-    width: '100%',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
   },
-  fallModalBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
+  refWeatherText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  refHeroTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  refWatchBadge: {
+    position: 'absolute',
+    right: 0,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fallModalBtnTxt: {
-    fontSize: 13,
+  refWatchDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  refHeroStatsRow: {
+    width: '100%',
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.26)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.78)',
+    borderRadius: 22,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    marginTop: 14,
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 5,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(24px) saturate(200%) brightness(110%)', WebkitBackdropFilter: 'blur(24px) saturate(200%) brightness(110%)' } : {}),
+  },
+  refHeroStatItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  refHeroStatLabel: {
+    color: 'rgba(255, 255, 255, 0.90)',
+    fontSize: 10,
     fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 3,
+    textAlign: 'center',
+  },
+  refHeroStatValue: {
     color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+    textAlign: 'center',
+  },
+  refHeroStatUnit: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.95)',
+  },
+  refHeroStatDivider: {
+    width: 1.5,
+    height: 28,
+    borderRadius: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.50)',
+  },
+  refGridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    width: '100%',
+  },
+  refCard: {
+    width: '48.5%',
+    minHeight: 135,
+    borderRadius: 24,
+    padding: 14,
+    marginBottom: 12,
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 4,
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } : {}),
+  },
+  refCardPeach: {
+    backgroundColor: COLORS.cardPeach,
+    borderColor: COLORS.cardPeachBorder,
+  },
+  refCardLilac: {
+    backgroundColor: COLORS.cardLilac,
+    borderColor: COLORS.cardLilacBorder,
+  },
+  refCardMint: {
+    backgroundColor: COLORS.cardMint,
+    borderColor: COLORS.cardMintBorder,
+  },
+  refCardAmber: {
+    backgroundColor: COLORS.cardAmber,
+    borderColor: COLORS.cardAmberBorder,
+  },
+  refCardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  refCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  refCardCenterBody: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refPeachCenterCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FF6B4A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  refPeachNumText: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#FF6B4A',
+  },
+  refPeachSubText: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  refLilacFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  refLilacBpmVal: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#6D28D9',
+  },
+  refLilacBpmUnit: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#8B5CF6',
+  },
+  refMintFooterText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F766E',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  refMintUnit: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#14B8A6',
+  },
+  refAmberRingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refAmberRing: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 4,
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refAmberRingNum: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  refAmberRingUnit: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#F59E0B',
+  },
+  dashNavItemActive: {
+    backgroundColor: '#6C5CE7',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
 });

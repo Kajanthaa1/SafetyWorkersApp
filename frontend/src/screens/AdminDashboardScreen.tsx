@@ -35,6 +35,7 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
 
   // Alerts
   const [alerts, setAlerts] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'alerts' | 'monitor' | 'tasks' | 'attendance'>('dashboard');
 
   useEffect(() => {
     // Initial fetch
@@ -210,22 +211,119 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
     <View style={GLOBAL_STYLES.container}>
       {/* Admin Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.adminName}>{user.name}</Text>
-          <View style={styles.roleContainer}>
-            <Icon name="shield-crown" size={14} color={COLORS.primaryLight} />
-            <Text style={styles.adminRole}>Safety Supervisor</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {activeTab !== 'dashboard' ? (
+            <TouchableOpacity onPress={() => setActiveTab('dashboard')} style={{ padding: 4 }}>
+              <Icon name="arrow-left" size={22} color={COLORS.text} />
+            </TouchableOpacity>
+          ) : (
+             <View style={styles.headerAvatarCircle}>
+               <Icon name="shield-crown" size={20} color="#6C5CE7" />
+             </View>
+          )}
+          <View>
+            <Text style={styles.adminName}>{user.name}</Text>
+            <View style={styles.roleContainer}>
+              <Icon name="shield-check" size={14} color={COLORS.success} />
+              <Text style={styles.adminRole}>Safety Supervisor</Text>
+            </View>
           </View>
         </View>
 
         <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
-          <Icon name="logout" size={20} color={COLORS.textSecondary} />
+          <Icon name="logout" size={20} color={COLORS.danger} />
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Real-time incident flashing banner */}
-        {activeAlerts.length > 0 && (
+        {activeTab === 'dashboard' && (
+          <View style={styles.dashboardContainer}>
+            <View style={styles.refGridContainer}>
+              {/* Card 1: Emergency Alarms */}
+              <TouchableOpacity
+                style={[styles.refCard, activeAlerts.length > 0 ? styles.refCardDanger : styles.refCardPeach]}
+                onPress={() => setActiveTab('alerts')}
+                activeOpacity={0.85}
+              >
+                <View style={styles.refCardHeaderRow}>
+                  <Text style={[styles.refCardTitle, { color: activeAlerts.length > 0 ? '#DC2626' : '#FF6B4A' }]}>Active Alarms</Text>
+                  <Icon name="alert-circle" size={18} color={activeAlerts.length > 0 ? '#DC2626' : '#FF6B4A'} />
+                </View>
+                <View style={styles.refCardCenterBody}>
+                  <View style={[styles.refPeachCenterCircle, activeAlerts.length > 0 && { borderColor: '#DC2626', backgroundColor: '#FEF2F2' }]}>
+                    <Text style={[styles.refPeachNumText, activeAlerts.length > 0 && { color: '#DC2626' }]}>
+                      {activeAlerts.length}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: activeAlerts.length > 0 ? '#DC2626' : '#94A3B8', marginTop: 8 }}>ALERTS</Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Card 2: Live Monitor */}
+              <TouchableOpacity
+                style={[styles.refCard, styles.refCardLilac]}
+                onPress={() => setActiveTab('monitor')}
+                activeOpacity={0.85}
+              >
+                <View style={styles.refCardHeaderRow}>
+                  <Text style={[styles.refCardTitle, { color: '#6D28D9' }]}>Live Monitor</Text>
+                  <Icon name="heart-pulse" size={18} color="#EF4444" />
+                </View>
+                <View style={styles.refCardCenterBody}>
+                  <View style={styles.refPeachCenterCircle}>
+                    <Text style={[styles.refPeachNumText, { color: '#6D28D9' }]}>{workers.length}</Text>
+                  </View>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#8B5CF6', marginTop: 8 }}>WORKERS ONLINE</Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Card 3: Tasks */}
+              <TouchableOpacity
+                style={[styles.refCard, styles.refCardMint]}
+                onPress={() => setActiveTab('tasks')}
+                activeOpacity={0.85}
+              >
+                <View style={styles.refCardHeaderRow}>
+                  <Text style={[styles.refCardTitle, { color: '#0F766E' }]}>Dispatch Tasks</Text>
+                  <Icon name="clipboard-check" size={18} color="#14B8A6" />
+                </View>
+                <View style={styles.refCardCenterBody}>
+                  <View style={styles.refPeachCenterCircle}>
+                    <Text style={[styles.refPeachNumText, { color: '#0F766E' }]}>{tasks.filter(t => t.status !== 'done').length}</Text>
+                  </View>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#14B8A6', marginTop: 8 }}>PENDING</Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Card 4: Attendance */}
+              <TouchableOpacity
+                style={[styles.refCard, styles.refCardAmber]}
+                onPress={() => setActiveTab('attendance')}
+                activeOpacity={0.85}
+              >
+                <View style={styles.refCardHeaderRow}>
+                  <Text style={[styles.refCardTitle, { color: '#B45309' }]}>Attendance</Text>
+                  <Icon name="clock-outline" size={18} color="#F59E0B" />
+                </View>
+                <View style={styles.refCardCenterBody}>
+                  <View style={styles.refPeachCenterCircle}>
+                    <Icon name="history" size={28} color="#B45309" />
+                  </View>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#F59E0B', marginTop: 8 }}>VIEW LOGS</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {activeTab === 'alerts' && (
+          <View style={styles.tabContent}>
+            {activeAlerts.length === 0 ? (
+              <Text style={styles.emptyText}>No active alerts at the moment.</Text>
+            ) : (
+              <View>
+                {/* Real-time incident flashing banner */}
+                {activeAlerts.length > 0 && (
           <View style={styles.alertIncidentBox}>
             <View style={styles.alertHeaderRow}>
               <Icon name="alert-circle" size={26} color={COLORS.danger} style={styles.pulseIcon} />
@@ -259,9 +357,15 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
             </View>
           </View>
         )}
+              </View>
+            )}
+          </View>
+        )}
 
-        {/* Section 1: Workers Vitals Monitor Grid */}
-        <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
+        {activeTab === 'monitor' && (
+          <View style={styles.tabContent}>
+            {/* Section 1: Workers Vitals Monitor Grid */}
+            <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
           <Text style={styles.cardTitle}>Live Worker Safety Monitor</Text>
           <Text style={styles.cardSubtitle}>Real-time BPM, SpO2, and Movement Tracker</Text>
 
@@ -353,9 +457,13 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
             })}
           </View>
         </View>
+          </View>
+        )}
 
-        {/* Section 2: Task Dispatcher Form */}
-        <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
+        {activeTab === 'tasks' && (
+          <View style={styles.tabContent}>
+            {/* Section 2: Task Dispatcher Form */}
+            <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
           <Text style={styles.cardTitle}>Dispatch & Assign Tasks</Text>
           
           <View style={styles.formContainer}>
@@ -431,9 +539,13 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
             )}
           </View>
         </View>
+          </View>
+        )}
 
-        {/* Section 3: Attendance Shift Logs */}
-        <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
+        {activeTab === 'attendance' && (
+          <View style={styles.tabContent}>
+            {/* Section 3: Attendance Shift Logs */}
+            <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
           <Text style={styles.cardTitle}>Attendance Shift Logs</Text>
           <Text style={styles.cardSubtitle}>Clock-In / Clock-Out timestamps with GPS coords</Text>
 
@@ -473,12 +585,107 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
             )}
           </View>
         </View>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  tabContent: {
+    gap: 16,
+  },
+  dashboardContainer: {
+    paddingHorizontal: 4,
+    paddingTop: 10,
+  },
+  refGridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    width: '100%',
+  },
+  refCard: {
+    width: '48.5%',
+    minHeight: 135,
+    borderRadius: 24,
+    padding: 14,
+    marginBottom: 12,
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    shadowColor: '#6C5CE7',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 4,
+  },
+  refCardPeach: {
+    backgroundColor: 'rgba(255, 247, 237, 0.82)',
+    borderColor: 'rgba(255, 237, 213, 0.95)',
+  },
+  refCardLilac: {
+    backgroundColor: 'rgba(246, 240, 255, 0.82)',
+    borderColor: 'rgba(233, 213, 255, 0.95)',
+  },
+  refCardMint: {
+    backgroundColor: 'rgba(235, 251, 250, 0.82)',
+    borderColor: 'rgba(204, 251, 241, 0.95)',
+  },
+  refCardAmber: {
+    backgroundColor: 'rgba(255, 251, 235, 0.82)',
+    borderColor: 'rgba(254, 243, 199, 0.95)',
+  },
+  refCardDanger: {
+    backgroundColor: 'rgba(254, 242, 242, 0.92)',
+    borderColor: 'rgba(239, 68, 68, 0.7)',
+  },
+  refCardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  refCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  refCardCenterBody: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refPeachCenterCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FF6B4A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  refPeachNumText: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#FF6B4A',
+  },
+  headerAvatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   scrollContent: {
     padding: 16,
     gap: 16,

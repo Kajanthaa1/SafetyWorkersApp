@@ -29,7 +29,7 @@ const getBackendUrl = () => {
   }
 
   // Hardcode fallback to your machine's exact local IP for Expo Go compatibility
-  return 'http://10.34.13.10:5000';
+  return 'http://172.22.143.113:5000';
 };
 
 export const API_BASE = getBackendUrl();
@@ -127,7 +127,17 @@ export const api = {
       method: 'PATCH',
     }),
 
-  // Real-time weather (uses device GPS coordinates)
-  fetchWeather: (lat: number, lon: number) =>
-    request<any>(`/api/weather?lat=${lat}&lon=${lon}`),
+  // Real-time weather (uses device GPS coordinates or city name)
+  fetchWeather: (lat?: number, lon?: number, city?: string) => {
+    const params = new URLSearchParams();
+    if (lat !== undefined && lon !== undefined && (lat !== 0 || lon !== 0)) {
+      params.append('lat', String(lat));
+      params.append('lon', String(lon));
+    }
+    if (city && city.trim()) {
+      params.append('city', city.trim());
+    }
+    const query = params.toString();
+    return request<any>(`/api/weather${query ? `?${query}` : ''}`);
+  },
 };

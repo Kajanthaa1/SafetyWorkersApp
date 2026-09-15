@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import http from 'http';
 import https from 'https';
 import { db, User, hashPassword } from './db';
 
@@ -42,10 +43,10 @@ async function getDeviceUser(req: Request): Promise<User | null> {
 // ── Helper: Fetch OpenWeatherMap real weather ──────────────────────────────────────
 const OWM_API_KEY = 'a1847fbc4fe0b3d668f78717f250733b';
 
-function fetchOpenWeatherMap(lat: number, lon: number): Promise<any> {
+function fetchJson(url: string): Promise<any> {
   return new Promise((resolve, reject) => {
-    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OWM_API_KEY}&units=metric`;
-    https.get(url, (res) => {
+    const client = url.startsWith('https') ? https : http;
+    client.get(url, (res) => {
       let data = '';
       res.on('data', (chunk) => (data += chunk));
       res.on('end', () => {
@@ -54,6 +55,32 @@ function fetchOpenWeatherMap(lat: number, lon: number): Promise<any> {
       });
     }).on('error', reject);
   });
+}
+
+async function fetchOpenWeatherMap(options: { lat?: number; lon?: number; city?: string }): Promise<any> {
+  let url = '';
+  if (options.city && options.city.trim()) {
+    url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(options.city.trim())}&appid=${OWM_API_KEY}&units=metric`;
+  } else if (options.lat !== undefined && options.lon !== undefined && (options.lat !== 0 || options.lon !== 0)) {
+    url = `https://api.openweathermap.org/data/2.5/weather?lat=${options.lat}&lon=${options.lon}&appid=${OWM_API_KEY}&units=metric`;
+  } else {
+    // If coordinates are 0,0 or missing, auto-detect location via IP
+    try {
+      const ipInfo = await fetchJson('http://ip-api.com/json');
+      if (ipInfo && ipInfo.status === 'success' && ipInfo.lat && ipInfo.lon) {
+        url = `https://api.openweathermap.org/data/2.5/weather?lat=${ipInfo.lat}&lon=${ipInfo.lon}&appid=${OWM_API_KEY}&units=metric`;
+      }
+    } catch (e) {
+      console.warn('[Weather] IP geolocation lookup failed in backend:', e);
+    }
+  }
+
+  // If still empty, default to detected regional center
+  if (!url) {
+    url = `https://api.openweathermap.org/data/2.5/weather?lat=6.9318&lon=79.8863&appid=${OWM_API_KEY}&units=metric`;
+  }
+
+  return fetchJson(url);
 }
 
 // ── Helper: Consecutive abnormal count (in-memory, per worker) ─────────────────
@@ -515,25 +542,45 @@ router.patch('/alerts/:id/resolve', async (req: Request, res: Response) => {
 // 8. REAL-TIME WEATHER (OpenWeatherMap)
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/weather', async (req: Request, res: Response) => {
-  const lat = req.query.lat ? parseFloat(req.query.lat as string) : 0;
-  const lon = req.query.lon ? parseFloat(req.query.lon as string) : 0;
+  const lat = req.query.lat ? parseFloat(req.query.lat as string) : undefined;
+  const lon = req.query.lon ? parseFloat(req.query.lon as string) : undefined;
+  const city = req.query.city ? (req.query.city as string) : undefined;
 
   try {
-    const weatherData = await fetchOpenWeatherMap(lat, lon);
+    const weatherData = await fetchOpenWeatherMap({ lat, lon, city });
     
     if (weatherData.cod !== 200) {
       throw new Error(weatherData.message || 'Error fetching weather');
     }
 
     const tempC = Math.round(weatherData.main.temp);
-    // OpenWeatherMap returns wind speed in m/s (metric). Convert to knots: 1 m/s = 1.94384 knots
-    const windKnots = Math.round(weatherData.wind.speed * 1.94384);
-    // Precipitation (1h rain volume in mm). It might be missing if no rain.
-    const precipitationMm = weatherData.rain && weatherData.rain['1h'] ? parseFloat(weatherData.rain['1h'].toFixed(1)) : 0;
+    const feelsLikeC = Math.round(weatherData.main.feels_like ?? tempC);
+
+    // Wind speed:
+    // OpenWeatherMap returns wind speed in m/s (metric).
+    // Convert to km/h: 1 m/s = 3.6 km/h
+    // Convert to knots: 1 m/s = 1.94384 knots
+    const windSpeedMs = parseFloat((weatherData.wind?.speed || 0).toFixed(1));
+    const windSpeedKmH = Math.round(windSpeedMs * 3.6);
+    const windKnots = Math.round(windSpeedMs * 1.94384);
+
+    // Precipitation (rain volume in mm).
+    let precipitationMm = 0;
+    if (weatherData.rain) {
+      if (typeof weatherData.rain['1h'] === 'number') {
+        precipitationMm = parseFloat(weatherData.rain['1h'].toFixed(1));
+      } else if (typeof weatherData.rain['3h'] === 'number') {
+        precipitationMm = parseFloat((weatherData.rain['3h'] / 3).toFixed(1));
+      }
+    } else if (weatherData.snow) {
+      if (typeof weatherData.snow['1h'] === 'number') {
+        precipitationMm = parseFloat(weatherData.snow['1h'].toFixed(1));
+      }
+    }
     const humidity = Math.round(weatherData.main.humidity);
     
     // OpenWeatherMap provides its own text descriptions (e.g., "broken clouds")
-    let description = 'Unknown';
+    let description = 'Clear Sky';
     let weatherCode = 800; // default clear
     if (weatherData.weather && weatherData.weather.length > 0) {
       description = weatherData.weather[0].description;
@@ -542,16 +589,17 @@ router.get('/weather', async (req: Request, res: Response) => {
       weatherCode = weatherData.weather[0].id;
     }
 
-    // Safety hazard evaluation
-    const highWind = windKnots > 22;
+    // Safety hazard evaluation:
+    // Working at height threshold: > 38 km/h (~20 knots)
+    const highWind = windSpeedKmH > 38 || windKnots > 20;
     const lightningRisk = weatherCode >= 200 && weatherCode < 300; // Thunderstorm codes in OWM
-    const heatIndexDanger = tempC > 33;
-    const heavyRain = precipitationMm > 5;
+    const heatIndexDanger = feelsLikeC >= 35 || tempC >= 35;
+    const heavyRain = precipitationMm > 5 || (weatherCode >= 502 && weatherCode <= 504);
 
     const hazards: string[] = [];
-    if (highWind) hazards.push('High Wind Alert (>22 knots)');
+    if (highWind) hazards.push(`High Wind Alert (${windSpeedKmH} km/h)`);
     if (lightningRisk) hazards.push('Lightning Warning Detected');
-    if (heatIndexDanger) hazards.push('Extreme Heat Index Alert');
+    if (heatIndexDanger) hazards.push(`Extreme Heat Index (${feelsLikeC}°C)`);
     if (heavyRain) hazards.push('Heavy Precipitation Warning');
 
     const safeToWork = hazards.length === 0;
@@ -561,10 +609,18 @@ router.get('/weather', async (req: Request, res: Response) => {
     }
 
     return res.json({
-      locationName: weatherData.name || 'Unknown Location',
-      coordinates: { lat, lon },
+      locationName: weatherData.name || 'Site Location',
+      country: weatherData.sys?.country || '',
+      coordinates: {
+        lat: weatherData.coord?.lat ?? (lat ?? 0),
+        lon: weatherData.coord?.lon ?? (lon ?? 0),
+      },
       temperature: tempC,
-      windSpeed: windKnots,
+      feelsLike: feelsLikeC,
+      windSpeed: windSpeedKmH, // Primary unit in km/h
+      windSpeedKmH,
+      windSpeedKnots: windKnots,
+      windSpeedMs,
       precipitation: precipitationMm,
       humidity,
       description,
