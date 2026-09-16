@@ -38,6 +38,7 @@ const io = new Server(server, {
 });
 
 // Attach Socket.io emitter to API routes
+(global as any).io = io;
 setSocketEmitter((event: string, data: any) => {
   io.emit(event, data);
 });

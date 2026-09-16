@@ -10,6 +10,15 @@ export let socketEmitter: ((event: string, data: any) => void) | null = null;
 export function setSocketEmitter(emitter: (event: string, data: any) => void) {
   socketEmitter = emitter;
 }
+export function emitSocket(event: string, data: any) {
+  if (socketEmitter) {
+    socketEmitter(event, data);
+  } else if ((global as any).io) {
+    (global as any).io.emit(event, data);
+  } else {
+    console.warn(`[Socket] Neither socketEmitter nor global.io is available to emit: ${event}`);
+  }
+}
 
 // ── Helper: Device Token Auth ──────────────────────────────────────────────────
 async function getDeviceUser(req: Request): Promise<User | null> {
@@ -140,20 +149,16 @@ async function processVitalReading(
       timestamp: Date.now(),
     };
     await db.addAlert(newAlert);
-    if (socketEmitter) {
-      socketEmitter('new_alert', { userId, name: user.name, alert: newAlert });
-    }
+    emitSocket('new_alert', { userId, name: user.name, alert: newAlert });
   }
 
-  if (socketEmitter) {
-    socketEmitter('vitals_update', {
-      userId,
-      name: user.name,
-      reading,
-      consecutiveAbnormalCount: consecutiveAbnormalCounts[userId],
-      triggeredAlert,
-    });
-  }
+  emitSocket('vitals_update', {
+    userId,
+    name: user.name,
+    reading,
+    consecutiveAbnormalCount: consecutiveAbnormalCounts[userId],
+    triggeredAlert,
+  });
 
   return {
     ...reading,
@@ -374,6 +379,94 @@ router.post('/device/alert', async (req: Request, res: Response) => {
     return res.status(201).json(newAlert);
   } catch (err) {
     return res.status(500).json({ error: 'Failed to trigger device alert' });
+  }
+});
+
+router.post('/sensor', async (req: Request, res: Response) => {
+  try {
+    const { workerId, bpm, spo2, gx, gy, gz, fall, alert, imuOnline } = req.body;
+    
+    // Find user by username or ID, normalizing worker01 <-> worker1
+    let user = await db.getUserByUsername(workerId);
+    if (!user && workerId) {
+      user = await db.getUserById(workerId);
+    }
+    if (!user && workerId) {
+      const normalized = workerId.toLowerCase().replace(/worker0+([1-9]\d*)/, 'worker$1');
+      user = (await db.getUserByUsername(normalized)) || (await db.getUserById(normalized));
+    }
+    if (!user) {
+      const sanooUser = await db.getUserByUsername('sanoo1');
+      if (sanooUser) user = sanooUser;
+    }
+    if (!user) {
+      // Fallback: return last registered worker
+      const users = await db.getUsers();
+      user = users.filter(u => u.role === 'worker').pop() || null;
+    }
+    
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    if (alert && fall) {
+        // Trigger fall alert
+        const newAlert = {
+          id: `alert_${Date.now()}`,
+          userId: user.id,
+          type: 'fall' as const,
+          status: 'active' as const,
+          timestamp: Date.now(),
+        };
+        await db.addAlert(newAlert);
+
+        const fallEvent = {
+          id: `fall_${Date.now()}`,
+          userId: user.id,
+          timestamp: Date.now(),
+          severity: 'confirmed' as const,
+          status: 'confirmed' as const,
+        };
+        await db.addFallEvent(fallEvent);
+
+        emitSocket('new_fall', { userId: user.id, name: user.name, fall: fallEvent });
+        emitSocket('new_alert', { userId: user.id, name: user.name, alert: newAlert });
+    }
+    
+    console.log(`[Sensor] Inbound from ${workerId}: BPM=${bpm}, SpO2=${spo2}, user=${user.name} (${user.id})`);
+    if (bpm !== null || spo2 !== null) {
+      // Process vitals with fallback if one is momentarily null
+      const safeBpm = bpm !== null ? Number(bpm) : 75;
+      const safeSpo2 = spo2 !== null ? Number(spo2) : 98;
+      await processVitalReading(user, safeBpm, safeSpo2, gx, gy, gz, 'gsm', 1.5, 1);
+
+      // If mapped user is worker1 and active worker sanoo1 is also in system, keep sanoo1 synced
+      if (user.username !== 'sanoo1') {
+        const sanooUser = await db.getUserByUsername('sanoo1');
+        if (sanooUser) {
+          await processVitalReading(sanooUser, safeBpm, safeSpo2, gx, gy, gz, 'gsm', 1.5, 1);
+        }
+      }
+    } else if (gx !== undefined || gy !== undefined || gz !== undefined) {
+      // Even if finger is momentarily off, stream live motion / gyro to worker app
+      emitSocket('vitals_update', {
+        userId: user.id,
+        name: user.name,
+        reading: {
+          userId: user.id,
+          bpm: 0,
+          spo2: 0,
+          gx: Number(gx || 0),
+          gy: Number(gy || 0),
+          gz: Number(gz || 0),
+          timestamp: Date.now(),
+          source: 'gsm',
+        },
+      });
+    }
+    
+    return res.status(201).json({ success: true });
+  } catch (err) {
+    console.error('Error in /sensor:', err);
+    return res.status(500).json({ error: 'Failed to process sensor data' });
   }
 });
 

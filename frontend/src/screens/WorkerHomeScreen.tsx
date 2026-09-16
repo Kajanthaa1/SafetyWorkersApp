@@ -31,7 +31,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import ArcProgressGauge from '../components/ArcProgressGauge';
 import EcgWaveform from '../components/EcgWaveform';
 import MiniBarChart from '../components/MiniBarChart';
-import SmartwatchHeroCard from '../components/SmartwatchHeroCard';
 
 interface WorkerHomeScreenProps {
   user: any;
@@ -154,105 +153,105 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   }, [isOnline]);
 
   useEffect(() => {
-    // Initialize WebSockets (only if online)
-    let socket: any = null;
-    if (isOnline) {
-      socket = initSocket(user.id, user.role);
+    // Initialize WebSockets for local LAN communication
+    const socket = initSocket(user.id, user.role);
 
-      // Socket listeners
-      socket.on('task_update', (data: any) => {
-        if (data.userId === user.id) {
-          loadTasks();
-        }
-      });
+    // Socket listeners
+    socket.on('task_update', (data: any) => {
+      if (data.userId === user.id) {
+        loadTasks();
+      }
+    });
 
-      socket.on('new_fall', (data: any) => {
-        if (data.userId === user.id || user.role === 'worker') {
-          setMovementState('Fall Detected');
-          setFallModalVisible(true);
-          setLastFall({ timestamp: data.fall?.timestamp || Date.now(), severity: data.fall?.severity || 'confirmed' });
-        }
-      });
+    socket.on('new_fall', (data: any) => {
+      if (data.userId === user.id || user.role === 'worker') {
+        setMovementState('Fall Detected');
+        setFallModalVisible(true);
+        setLastFall({ timestamp: data.fall?.timestamp || Date.now(), severity: data.fall?.severity || 'confirmed' });
+      }
+    });
 
-      socket.on('new_alert', (data: any) => {
-        if ((data.userId === user.id || user.role === 'worker') && data.alert?.type === 'fall') {
-          setMovementState('Fall Detected');
-          setFallModalVisible(true);
-          setLastFall({ timestamp: data.alert?.timestamp || Date.now(), severity: 'confirmed' });
-        }
-      });
+    socket.on('new_alert', (data: any) => {
+      if ((data.userId === user.id || user.role === 'worker') && data.alert?.type === 'fall') {
+        setMovementState('Fall Detected');
+        setFallModalVisible(true);
+        setLastFall({ timestamp: data.alert?.timestamp || Date.now(), severity: 'confirmed' });
+      }
+    });
 
-      socket.on('vitals_update', (data: any) => {
-        if (data.userId === user.id || user.role === 'worker') {
-          setIsHardwareActive(true);
-          isHardwareActiveRef.current = true;
-          if (data.reading) {
-            const rawBpm = Number(data.reading.bpm || 0);
-            const rawSpo2 = Number(data.reading.spo2 || 0);
-            let rawGx = Number(data.reading.gx || 0);
-            let rawGy = Number(data.reading.gy || 0);
-            let rawGz = Number(data.reading.gz || 0);
+    socket.on('vitals_update', (data: any) => {
+      if (data.userId === user.id || user.role === 'worker') {
+        setIsHardwareActive(true);
+        isHardwareActiveRef.current = true;
+        if (data.reading) {
+          const rawBpm = Number(data.reading.bpm || 0);
+          const rawSpo2 = Number(data.reading.spo2 || 0);
+          let rawGx = Number(data.reading.gx || 0);
+          let rawGy = Number(data.reading.gy || 0);
+          let rawGz = Number(data.reading.gz || 0);
 
-            // Gyro Deadband Noise Filter: force 0.00 °/s when device is stationary on table
-            if (Math.abs(rawGx) < 0.35) rawGx = 0;
-            if (Math.abs(rawGy) < 0.35) rawGy = 0;
-            if (Math.abs(rawGz) < 0.35) rawGz = 0;
-            setGyro({ gx: rawGx, gy: rawGy, gz: rawGz });
+          // Gyro Deadband Noise Filter: force 0.00 °/s when device is stationary on table
+          if (Math.abs(rawGx) < 0.35) rawGx = 0;
+          if (Math.abs(rawGy) < 0.35) rawGy = 0;
+          if (Math.abs(rawGz) < 0.35) rawGz = 0;
+          setGyro({ gx: rawGx, gy: rawGy, gz: rawGz });
 
-            // Strict 60 - 100 BPM Range Filter: Only update if inside healthy range [60, 100], else keep last valid reading!
-            if (rawBpm >= 60 && rawBpm <= 100) {
-              setBpm(rawBpm);
-            }
-            if (rawSpo2 >= 92 && rawSpo2 <= 100) {
-              setSpo2(rawSpo2);
-            }
-
-            // Calculate movement activity from Gyro angular magnitude (°/s)
-            const mag = Math.sqrt(rawGx * rawGx + rawGy * rawGy + rawGz * rawGz);
-            let activity = 'Stationary';
-            if (mag > 10.0) {
-              setMovementState('Active');
-              activity = 'Dynamic Wrist Motion';
-            } else if (mag > 1.5) {
-              setMovementState('Active');
-              activity = 'Active Movement';
-            } else {
-              setMovementState('Idle');
-              activity = 'Stationary';
-            }
-            setMovementActivity(activity);
-
-            // Smooth Working Height / Elevation calculation (EMA filter to eliminate rotation noise)
-            const targetHeight = 1.5; // Baseline standing working height (meters)
-            setEstimatedHeight(prev => parseFloat((prev * 0.95 + targetHeight * 0.05).toFixed(1)));
-
-            setVitalsHistory(prev => [
-              ...prev.slice(-30),
-              {
-                bpm: rawBpm >= 60 && rawBpm <= 100 ? rawBpm : (prev.length > 0 ? prev[prev.length - 1].bpm : 75),
-                spo2: rawSpo2 >= 92 && rawSpo2 <= 100 ? rawSpo2 : (prev.length > 0 ? prev[prev.length - 1].spo2 : 98),
-                timestamp: data.reading.timestamp || Date.now(),
-              },
-            ]);
+          // Accept valid physiological BPM (30 - 220) from wearable sensor
+          if (rawBpm >= 30 && rawBpm <= 220) {
+            setBpm(rawBpm);
+            setPpgPoints(prev => {
+              const next = [...prev.slice(1)];
+              const normalized = Math.min(40, Math.max(2, (rawBpm - 50) * 0.5));
+              next.push(normalized);
+              return next;
+            });
           }
-          setConsecutiveAbnormal(data.consecutiveAbnormalCount || 0);
-          if (data.consecutiveAbnormalCount >= 3) {
-            setHealthStatus('Health Risk Alert');
+          // Accept valid physiological SpO2 (50 - 100%)
+          if (rawSpo2 >= 50 && rawSpo2 <= 100) {
+            setSpo2(rawSpo2);
+          }
+
+          // Calculate movement activity from Gyro angular magnitude (°/s)
+          const mag = Math.sqrt(rawGx * rawGx + rawGy * rawGy + rawGz * rawGz);
+          let activity = 'Stationary';
+          if (mag > 10.0) {
+            setMovementState('Active');
+            activity = 'Dynamic Wrist Motion';
+          } else if (mag > 1.5) {
+            setMovementState('Active');
+            activity = 'Active Movement';
           } else {
-            setHealthStatus('Normal');
+            setMovementState('Idle');
+            activity = 'Stationary';
           }
+          setMovementActivity(activity);
+
+          // Smooth Working Height / Elevation calculation (EMA filter to eliminate rotation noise)
+          const targetHeight = 1.5; // Baseline standing working height (meters)
+          setEstimatedHeight(prev => parseFloat((prev * 0.95 + targetHeight * 0.05).toFixed(1)));
+
+          setVitalsHistory(prev => [
+            ...prev.slice(-30),
+            {
+              bpm: (rawBpm >= 30 && rawBpm <= 220) ? rawBpm : (prev.length > 0 ? prev[prev.length - 1].bpm : 75),
+              spo2: (rawSpo2 >= 50 && rawSpo2 <= 100) ? rawSpo2 : (prev.length > 0 ? prev[prev.length - 1].spo2 : 98),
+              timestamp: data.reading.timestamp || Date.now(),
+            },
+          ]);
         }
-      });
-    } else {
-      console.log('[WorkerHomeScreen] Running in offline mode. Sockets disabled.');
-    }
+        setConsecutiveAbnormal(data.consecutiveAbnormalCount || 0);
+        if (data.consecutiveAbnormalCount >= 3) {
+          setHealthStatus('Health Risk Alert');
+        } else {
+          setHealthStatus('Normal');
+        }
+      }
+    });
 
     return () => {
-      if (isOnline) {
-        disconnectSocket();
-      }
+      disconnectSocket();
     };
-  }, [isOnline]);
+  }, []);
 
   // Mount-only effect: load data and start timers once
   useEffect(() => {
@@ -854,25 +853,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         </View>
 
         <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={[
-              styles.connectionBadge,
-              bleConnected ? styles.connectionBadgeConnected : bleStatus === 'scanning' || bleStatus === 'connecting' ? styles.connectionBadgeWarning : styles.connectionBadgeOff
-            ]}
-            onPress={bleConnected ? handleDisconnectWearable : handleConnectWearable}
-            activeOpacity={0.8}
-          >
-            <Icon
-              name={bleConnected ? 'bluetooth-connect' : bleStatus === 'scanning' || bleStatus === 'connecting' ? 'bluetooth-settings' : 'bluetooth-off'}
-              size={15}
-              color={bleConnected ? COLORS.success : bleStatus === 'scanning' || bleStatus === 'connecting' ? COLORS.warning : '#64748B'}
-            />
-            <Text style={[styles.connectionText, {
-              color: bleConnected ? COLORS.success : bleStatus === 'scanning' || bleStatus === 'connecting' ? COLORS.warning : '#64748B'
-            }]}>
-              {bleConnected ? 'BT: On' : bleStatus === 'scanning' ? 'Scan…' : bleStatus === 'connecting' ? 'Wait…' : 'BT: Off'}
-            </Text>
-          </TouchableOpacity>
 
           {/* 🔴 LOGOUT OPTION 🔴 */}
           <TouchableOpacity
@@ -1049,11 +1029,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               </TouchableOpacity>
             </View>
 
-            {/* 3. Smartwatch Showcase Hero Section (Matching Right Phone Mockup) */}
-            <SmartwatchHeroCard
-              isConnected={bleConnected}
-              onConnectPress={bleConnected ? handleDisconnectWearable : handleConnectWearable}
-            />
 
             {/* Centered Full-width Horizontal SOS Panic Container */}
             <TouchableOpacity
@@ -1086,76 +1061,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         {activeTab === 'health' && (
           <View style={styles.tabContent}>
 
-            {/* ── BLE Wearable Connect Card ── */}
-            <View style={[GLOBAL_STYLES.glassCard, styles.card, styles.bleCard]}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardTitleContainer}>
-                  <Icon name="bluetooth" size={22} color={bleConnected ? COLORS.success : COLORS.primaryLight} />
-                  <Text style={styles.cardTitle}>Wearable Connection</Text>
-                </View>
-                <View style={[GLOBAL_STYLES.badge, {
-                  backgroundColor: bleConnected ? COLORS.successBg
-                    : bleStatus === 'scanning' || bleStatus === 'connecting' ? COLORS.warningBg
-                    : COLORS.surfaceLight,
-                }]}>
-                  <Text style={[GLOBAL_STYLES.badgeText, {
-                    marginLeft: 0,
-                    color: bleConnected ? COLORS.success
-                      : bleStatus === 'scanning' || bleStatus === 'connecting' ? COLORS.warning
-                      : COLORS.textMuted,
-                  }]}>
-                    {bleConnected ? '● Connected'
-                      : bleStatus === 'scanning' ? '◌ Scanning…'
-                      : bleStatus === 'connecting' ? '◌ Connecting…'
-                      : bleStatus === 'error' ? '✕ Error'
-                      : '○ Not Connected'}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.bleButtonRow}>
-                {bleConnected ? (
-                  <TouchableOpacity style={[styles.bleBtn, styles.bleBtnDisconnect]} onPress={handleDisconnectWearable}>
-                    <Icon name="bluetooth-off" size={16} color={COLORS.danger} style={{ marginRight: 6 }} />
-                    <Text style={[styles.bleBtnText, { color: COLORS.danger }]}>Disconnect Wearable</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={[styles.bleBtn, styles.bleBtnConnect,
-                      (bleStatus === 'scanning' || bleStatus === 'connecting') && { opacity: 0.6 }]}
-                    onPress={handleConnectWearable}
-                    disabled={bleStatus === 'scanning' || bleStatus === 'connecting'}
-                  >
-                    {(bleStatus === 'scanning' || bleStatus === 'connecting') ? (
-                      <ActivityIndicator size="small" color={COLORS.text} style={{ marginRight: 8 }} />
-                    ) : (
-                      <Icon name="bluetooth-connect" size={16} color={COLORS.text} style={{ marginRight: 6 }} />
-                    )}
-                    <Text style={styles.bleBtnText}>
-                      {bleStatus === 'scanning' ? 'Scanning…'
-                        : bleStatus === 'connecting' ? 'Connecting…'
-                        : 'Connect Wearable'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* Sensor Pills */}
-              <View style={styles.sensorPillsRow}>
-                <View style={[styles.sensorPill, bleConnected && { borderColor: COLORS.danger }]}>
-                  <Icon name="heart-pulse" size={13} color={bleConnected ? COLORS.danger : COLORS.textMuted} />
-                  <Text style={[styles.sensorPillText, bleConnected && { color: COLORS.danger }]}>Heart Rate</Text>
-                </View>
-                <View style={[styles.sensorPill, bleConnected && { borderColor: COLORS.success }]}>
-                  <Icon name="percent" size={13} color={bleConnected ? COLORS.success : COLORS.textMuted} />
-                  <Text style={[styles.sensorPillText, bleConnected && { color: COLORS.success }]}>Blood Oxygen</Text>
-                </View>
-                <View style={[styles.sensorPill, bleConnected && { borderColor: COLORS.warning }]}>
-                  <Icon name="run" size={13} color={bleConnected ? COLORS.warning : COLORS.textMuted} />
-                  <Text style={[styles.sensorPillText, bleConnected && { color: COLORS.warning }]}>Motion IMU</Text>
-                </View>
-              </View>
-            </View>
 
             {/* Vitals Summary Card */}
             <View style={[GLOBAL_STYLES.glassCard, styles.card]}>

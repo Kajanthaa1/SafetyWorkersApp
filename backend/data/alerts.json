@@ -1041,5 +1041,180 @@
     "status": "resolved",
     "timestamp": 1788120796661,
     "resolvedAt": 1788120819270
+  },
+  {
+    "id": "alert_1789505717743",
+    "userId": "worker_1789309679154",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789505717743
+  },
+  {
+    "id": "alert_1789505758169",
+    "userId": "worker_1789309679154",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789505758169
+  },
+  {
+    "id": "alert_1789509208273",
+    "userId": "worker1",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789509208273
+  },
+  {
+    "id": "alert_1789509896634",
+    "userId": "worker1",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789509896634
+  },
+  {
+    "id": "alert_1789509896666",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789509896666
+  },
+  {
+    "id": "alert_1789510076814",
+    "userId": "worker1",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789510076814
+  },
+  {
+    "id": "alert_1789510076894",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789510076894
+  },
+  {
+    "id": "alert_1789543370477",
+    "userId": "worker1",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789543370477
+  },
+  {
+    "id": "alert_1789543370568",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789543370568
+  },
+  {
+    "id": "alert_1789549202484",
+    "userId": "worker1",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789549202484
+  },
+  {
+    "id": "alert_1789549202672",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789549202672
+  },
+  {
+    "id": "alert_1789549412161",
+    "userId": "worker1",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789549412161
+  },
+  {
+    "id": "alert_1789549412240",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789549412240
+  },
+  {
+    "id": "alert_1789549666646",
+    "userId": "worker1",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789549666646
+  },
+  {
+    "id": "alert_1789549666746",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789549666746
+  },
+  {
+    "id": "alert_1789549746629",
+    "userId": "worker1",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789549746629
+  },
+  {
+    "id": "alert_1789549746732",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789549746732
+  },
+  {
+    "id": "alert_1789550056136",
+    "userId": "worker1",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789550056136
+  },
+  {
+    "id": "alert_1789550056219",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789550056219
+  },
+  {
+    "id": "alert_1789550099174",
+    "userId": "worker1",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789550099174
+  },
+  {
+    "id": "alert_1789550099296",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789550099296
+  },
+  {
+    "id": "alert_1789550213877",
+    "userId": "worker1",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789550213877
+  },
+  {
+    "id": "alert_1789550213960",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789550213960
+  },
+  {
+    "id": "alert_1789550242247",
+    "userId": "worker1",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789550242247
+  },
+  {
+    "id": "alert_1789550242289",
+    "userId": "worker_1787293120194",
+    "type": "health",
+    "status": "active",
+    "timestamp": 1789550242289
   }
 ]
