@@ -40,14 +40,12 @@ interface WorkerHomeScreenProps {
 type TabType = 'dashboard' | 'health' | 'fall' | 'emergency' | 'weather';
 
 export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenProps) {
-  // Navigation Tabs state
+
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
 
-  // Network & Queue State
   const isOnline = useNetworkStatus();
   const [offlineQueueSize, setOfflineQueueSize] = useState(0);
 
-  // 1. Health Monitor State
   const [bpm, setBpm] = useState(76);
   const [spo2, setSpo2] = useState(98);
   const [bodyTemp, setBodyTemp] = useState<number>(36.6);
@@ -55,45 +53,39 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   const [loadingVitals, setLoadingVitals] = useState(false);
   const [consecutiveAbnormal, setConsecutiveAbnormal] = useState(0);
   const [healthStatus, setHealthStatus] = useState<'Normal' | 'Health Risk Alert'>('Normal');
-  
-  // Live Hardware IMU & Gyro State
+
   const [gyro, setGyro] = useState<{ gx: number; gy: number; gz: number }>({ gx: 0, gy: 0, gz: 9.81 });
   const [estimatedHeight, setEstimatedHeight] = useState<number>(1.5);
   const [movementActivity, setMovementActivity] = useState<string>('Stationary');
   const [isHardwareActive, setIsHardwareActive] = useState<boolean>(false);
   const isHardwareActiveRef = useRef<boolean>(false);
-  
-  // Advanced Safety: Man-Down, Heat Stress & Fall Popup Modal State
+
   const [manDownActive, setManDownActive] = useState<boolean>(false);
   const [manDownSeconds, setManDownSeconds] = useState<number>(20);
   const manDownCountdownRef = useRef<NodeJS.Timeout | null>(null);
   const [fallModalVisible, setFallModalVisible] = useState<boolean>(false);
   const [logoutModalVisible, setLogoutModalVisible] = useState<boolean>(false);
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
-  // BLE Wearable State
+
   const [bleStatus, setBleStatus] = useState<BleStatus>('idle');
   const bleConnected = bleStatus === 'connected';
 
-  // ESP32 simulation parameters (used when BLE is not connected)
-  const localSampleCadence = 5; // 5 seconds local sampling
-  const cloudPushCadence = 10; // 10 seconds DB push
+  const localSampleCadence = 5;
+  const cloudPushCadence = 10;
   const [lastPushTime, setLastPushTime] = useState<number>(Date.now());
   const [localBuffers, setLocalBuffers] = useState<{ bpm: number; spo2: number }[]>([]);
-  // Refs mirror state so setInterval callbacks are never stale
+
   const lastPushTimeRef2 = useRef<number>(Date.now());
   const localBuffersRef2 = useRef<{ bpm: number; spo2: number }[]>([]);
 
-  // PPG animation state (simulating MAX30102 live signal)
   const [ppgPoints, setPpgPoints] = useState<number[]>(new Array(30).fill(20));
   const ppgIndex = useRef(0);
 
-  // 2. Fall & Movement State
   const [movementState, setMovementState] = useState<'Active' | 'Idle' | 'Fall Detected'>('Active');
   const [countdown, setCountdown] = useState<number | null>(null);
   const [lastFall, setLastFall] = useState<{ timestamp: number; severity: string } | null>(null);
   const [activeFallId, setActiveFallId] = useState<string | null>(null);
 
-  // 3. Attendance & Task State
   const [clockedIn, setClockedIn] = useState(false);
   const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
@@ -101,41 +93,35 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
 
-  // 4. Alerts & Panel State
   const [connectionHealth, setConnectionHealth] = useState<'connected' | 'weak' | 'disconnected'>('connected');
   const [alertHistory, setAlertHistory] = useState<any[]>([]);
   const [submittingAlert, setSubmittingAlert] = useState(false);
 
-  // 5. Weather State
   const [weather, setWeather] = useState<any>(null);
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Simulation parameters for testing vitals spikes
   const [anomalyMode, setAnomalyMode] = useState<'none' | 'spike' | 'sustained'>('none');
   const anomalyCountRef = useRef(0);
 
-  // Timers Refs
   const countdownInterval = useRef<NodeJS.Timeout | null>(null);
   const esp32SampleInterval = useRef<NodeJS.Timeout | null>(null);
   const ppgAnimationInterval = useRef<NodeJS.Timeout | null>(null);
-  // Guard to prevent duplicate simulation start
+
   const simulationStarted = useRef(false);
-  // PPG raw buffer — updated by interval, flushed to state every ~600ms to reduce renders
+
   const ppgBufferRef = useRef<number[]>(new Array(30).fill(20));
   const ppgFlushInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // Animation values
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // BLE push cadence ref (so BLE callbacks can access without stale closure)
   const lastPushTimeRef = useRef<number>(Date.now());
   const localBuffersRef = useRef<{ bpm: number; spo2: number }[]>([]);
-  // Track online status in a ref so interval callbacks can read it without stale closure
+
   const isOnlineRef = useRef<boolean>(isOnline);
 
   useEffect(() => {
-    // Keep isOnlineRef in sync so interval callbacks always have the latest value
+
     isOnlineRef.current = isOnline;
     if (isOnline) {
       console.log('[WorkerHomeScreen] Network went ONLINE. Flushing offline queue...');
@@ -153,10 +139,9 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   }, [isOnline]);
 
   useEffect(() => {
-    // Initialize WebSockets for local LAN communication
+
     const socket = initSocket(user.id, user.role);
 
-    // Socket listeners
     socket.on('task_update', (data: any) => {
       if (data.userId === user.id) {
         loadTasks();
@@ -190,13 +175,11 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
           let rawGy = Number(data.reading.gy || 0);
           let rawGz = Number(data.reading.gz || 0);
 
-          // Gyro Deadband Noise Filter: force 0.00 °/s when device is stationary on table
           if (Math.abs(rawGx) < 0.35) rawGx = 0;
           if (Math.abs(rawGy) < 0.35) rawGy = 0;
           if (Math.abs(rawGz) < 0.35) rawGz = 0;
           setGyro({ gx: rawGx, gy: rawGy, gz: rawGz });
 
-          // Accept valid physiological BPM (30 - 220) from wearable sensor
           if (rawBpm >= 30 && rawBpm <= 220) {
             setBpm(rawBpm);
             setPpgPoints(prev => {
@@ -206,12 +189,11 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               return next;
             });
           }
-          // Accept valid physiological SpO2 (50 - 100%)
+
           if (rawSpo2 >= 50 && rawSpo2 <= 100) {
             setSpo2(rawSpo2);
           }
 
-          // Calculate movement activity from Gyro angular magnitude (°/s)
           const mag = Math.sqrt(rawGx * rawGx + rawGy * rawGy + rawGz * rawGz);
           let activity = 'Stationary';
           if (mag > 10.0) {
@@ -226,8 +208,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
           }
           setMovementActivity(activity);
 
-          // Smooth Working Height / Elevation calculation (EMA filter to eliminate rotation noise)
-          const targetHeight = 1.5; // Baseline standing working height (meters)
+          const targetHeight = 1.5;
           setEstimatedHeight(prev => parseFloat((prev * 0.95 + targetHeight * 0.05).toFixed(1)));
 
           setVitalsHistory(prev => [
@@ -253,14 +234,12 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     };
   }, []);
 
-  // Mount-only effect: load data and start timers once
   useEffect(() => {
     offlineQueue.getQueueSize().then(setOfflineQueueSize);
     loadInitialData();
     startEsp32Simulation();
     startPpgWaveformAnimation();
 
-    // Pulse animation for SOS / alerts
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.15, duration: 800, useNativeDriver: true }),
@@ -278,18 +257,18 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   }, []);
 
   const loadInitialData = async () => {
-    // Load critical UI data first (fast DB reads)
+
     await Promise.all([loadTasks(), loadAttendanceHistory()]);
-    // Defer heavier / network-dependent calls so dashboard renders fast
+
     setTimeout(() => loadVitalsHistory(), 200);
     setTimeout(() => loadAlertHistory(), 400);
-    setTimeout(() => requestLocationAndLoad(), 600); // GPS + weather last
+    setTimeout(() => requestLocationAndLoad(), 600);
   };
 
   const loadVitalsHistory = async () => {
     setLoadingVitals(true);
     try {
-      const data = await api.fetchVitals(user.id, 30); // fetch last 30 minutes (faster)
+      const data = await api.fetchVitals(user.id, 30);
       setVitalsHistory(data);
       if (data.length > 0) {
         const latest = data[data.length - 1];
@@ -349,7 +328,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     }
   };
 
-  // Fallback to IP-based geolocation if device GPS is turned off or unavailable
   const fallbackToIpWeather = async () => {
     try {
       const ipRes = await fetch('http://ip-api.com/json').then(r => r.json()).catch(() => null);
@@ -362,16 +340,14 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     } catch (e) {
       console.warn('[Location] IP geolocation fetch failed:', e);
     }
-    // Fallback: ask backend directly without coordinates (backend auto-detects via IP)
+
     await loadWeather();
   };
 
-  // Request GPS permission and get real device location with graceful fallbacks
   const requestLocationAndLoad = async (cityQuery?: string) => {
     setGpsLoading(true);
     setGpsError(null);
 
-    // If a manual city search was entered
     if (cityQuery && cityQuery.trim()) {
       await loadWeather(undefined, cityQuery.trim());
       setGpsLoading(false);
@@ -379,7 +355,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     }
 
     try {
-      // 1. Check & request foreground location permissions
+
       const { status: currentStatus } = await Location.getForegroundPermissionsAsync();
       let status = currentStatus;
       if (status !== 'granted') {
@@ -393,7 +369,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         return;
       }
 
-      // 2. Check if phone's location services (GPS toggle) are on
       const servicesEnabled = await Location.hasServicesEnabledAsync();
       if (!servicesEnabled && Platform.OS === 'android') {
         try {
@@ -403,7 +378,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         }
       }
 
-      // 3. Try to get cached / last known position first (instant response)
       let resolved = false;
       try {
         const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: 600000 });
@@ -417,7 +391,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         console.warn('[Location] Last known position unavailable:', lastErr);
       }
 
-      // 4. Try current position with balanced accuracy & timeout
       try {
         const loc = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
@@ -444,13 +417,9 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     }
   };
 
-  // MAX30102 Raw PPG waveform simulation
-  // Runs at 150ms internally but only flushes to React state every 600ms
-  // to reduce re-renders from 6/s → 1.6/s
   const startPpgWaveformAnimation = () => {
     const wavePattern = [15, 12, 10, 8, 12, 28, 35, 12, 14, 16, 18, 17, 16, 15, 15, 14, 15, 14, 15, 16, 15, 14, 15, 16, 15, 14, 13, 14, 15, 16];
 
-    // Inner timer: advance raw buffer quickly (no React state)
     ppgAnimationInterval.current = setInterval(() => {
       const buf = ppgBufferRef.current;
       const point = wavePattern[ppgIndex.current % wavePattern.length];
@@ -460,18 +429,15 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
       ppgIndex.current += 1;
     }, 150);
 
-    // Flush buffer to React state at a lower rate to avoid excessive renders
     ppgFlushInterval.current = setInterval(() => {
       setPpgPoints([...ppgBufferRef.current]);
     }, 600);
   };
 
-  // ── BLE vitals handler (called from BLE characteristic callbacks) ─────────────
   const handleBleVitalReading = useCallback(async (nextBpm: number, nextSpo2: number) => {
     setBpm(nextBpm);
     setSpo2(nextSpo2);
 
-    // Buffer readings for moving average before cloud push
     localBuffersRef.current = [...localBuffersRef.current, { bpm: nextBpm, spo2: nextSpo2 }];
 
     const now = Date.now();
@@ -500,7 +466,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         if (response.triggeredAlert) {
           setHealthStatus('Health Risk Alert');
           loadAlertHistory();
-          // Also buzz the wearable to alert the worker!
+
           triggerBuzzer(true);
           setTimeout(() => triggerBuzzer(false), 3000);
           Alert.alert('HEALTH WARNING', 'Sustained abnormal vital readings detected. Alert escalated to Supervisor.');
@@ -513,11 +479,9 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     }
   }, [cloudPushCadence, user.id, isOnline]);
 
-  // ── Connect to BLE wearable ───────────────────────────────────────────────────
   const handleConnectWearable = () => {
     if (bleStatus === 'scanning' || bleStatus === 'connecting') return;
 
-    // Stop simulation while BLE is active
     if (esp32SampleInterval.current) {
       clearInterval(esp32SampleInterval.current);
       esp32SampleInterval.current = null;
@@ -527,13 +491,13 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
       onStatusChange: (status) => {
         setBleStatus(status);
         if (status === 'disconnected' || status === 'error') {
-          // Re-start simulation fallback when BLE drops
+
           if (!esp32SampleInterval.current) startEsp32Simulation();
         }
       },
       onHeartRate: (newBpm) => {
         setBpm(newBpm);
-        // Update PPG waveform to reflect real reading
+
         setPpgPoints(prev => {
           const next = [...prev.slice(1)];
           const normalized = Math.min(40, Math.max(2, (newBpm - 50) * 0.5));
@@ -561,20 +525,18 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
   const handleDisconnectWearable = () => {
     disconnectWearable();
     setBleStatus('idle');
-    // Resume simulation
+
     if (!esp32SampleInterval.current) startEsp32Simulation();
   };
 
-  // ── Simulated ESP32 (fallback when BLE not connected) ────────────────────────
-  // Uses refs for lastPushTime and localBuffers to avoid stale closures in setInterval
   const startEsp32Simulation = () => {
-    if (esp32SampleInterval.current) return; // guard against duplicate starts
+    if (esp32SampleInterval.current) return;
 
     const anomalyModeRef = { current: anomalyMode };
 
     esp32SampleInterval.current = setInterval(async () => {
       if (isHardwareActiveRef.current) {
-        // Skip simulation when live ESP32 hardware data is active
+
         return;
       }
       let nextBpm = 75;
@@ -604,7 +566,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
       setBpm(nextBpm);
       setSpo2(nextSpo2);
 
-      // Use refs to avoid stale closure — no React state reads inside interval
       const newReading = { bpm: nextBpm, spo2: nextSpo2 };
       localBuffersRef2.current = [...localBuffersRef2.current, newReading];
 
@@ -647,10 +608,9 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     }, localSampleCadence * 1000);
   };
 
-  // Manual Check-In Button (forces reading computation + immediate DB push)
   const handleManualCheckIn = async () => {
     setLoadingVitals(true);
-    // Simulate immediate MAX30102 processing
+
     const nextBpm = Math.floor(Math.random() * 12) + 72;
     const nextSpo2 = 98;
 
@@ -681,7 +641,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     }
   };
 
-  // Vitals simulation triggers
   const triggerSingleNoisySpike = () => {
     setAnomalyMode('spike');
     Alert.alert('Simulating Noise', 'Next 5s local sensor sample will contain a noise artifact (HR 148, SpO2 89%). Alert should NOT trigger as it is a single sample.');
@@ -693,7 +652,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     Alert.alert('Simulating Sustained Critical Vitals', 'Sensors will report abnormal vitals (HR 125, SpO2 88%) for 3 consecutive cycles to trigger the automatic health alert.');
   };
 
-  // SOS & Fall controls
   const handleSimulateFall = async (severity: 'minor' | 'confirmed') => {
     setMovementState('Fall Detected');
     setFallModalVisible(true);
@@ -781,28 +739,23 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     }
   };
 
-  // Dynamic Worker Safety Score calculation (0 - 100%)
   const getSafetyScore = () => {
     let score = 100;
-    // Heart Rate evaluation
+
     if (bpm > 120 || bpm < 50) score -= 25;
     else if (bpm > 100 || bpm < 60) score -= 10;
 
-    // SpO2 Oxygen evaluation
     if (spo2 < 92) score -= 35;
     else if (spo2 < 95) score -= 15;
 
-    // Body Temp evaluation
     if (bodyTemp > 38.5) score -= 30;
     else if (bodyTemp > 37.5) score -= 15;
 
-    // Fall Impact evaluation
     if (movementState === 'Fall Detected') score -= 50;
 
     return Math.max(score, 0);
   };
 
-  // Helper styles / classes
   const getBpmColor = () => {
     if (bpm > 140 || bpm < 60) return COLORS.danger;
     return COLORS.success;
@@ -812,8 +765,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
     if (spo2 < 92) return COLORS.danger;
     return COLORS.success;
   };
-
-
 
   const handlePerformLogout = () => {
     setLogoutModalVisible(false);
@@ -827,7 +778,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
       colors={['#E3D5F2', '#C6D2F6']}
       style={GLOBAL_STYLES.container}
     >
-      {/* Top Header with Profile, Bluetooth Status, and Logout Option (Visible across all tabs) */}
+
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           {activeTab !== 'dashboard' ? (
@@ -854,7 +805,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
 
         <View style={styles.headerActions}>
 
-          {/* 🔴 LOGOUT OPTION 🔴 */}
           <TouchableOpacity
             style={styles.headerLogoutBtn}
             onPress={() => setLogoutModalVisible(true)}
@@ -876,10 +826,8 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         </View>
       )}
 
-      {/* Main Content Area switching depending on activeTab */}
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        {/* FALL OUT OVERLAY (Priority rendering if suspected fall countdown is active) */}
+
         {countdown !== null && (
           <View style={styles.fallOverlay}>
             <Icon name="alert-decagram" size={54} color={COLORS.danger} />
@@ -893,18 +841,15 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
           </View>
         )}
 
-        {/* DASHBOARD TAB (Tailored for Worker Safety & Vitals) */}
         {activeTab === 'dashboard' && (
           <View style={styles.dashboardContainer}>
 
-            {/* 1. Vibrant Purple Gradient Hero Header (Safety Score, Weather, Live Vitals Stats) */}
             <LinearGradient
               colors={['#6C5CE7', '#8B5CF6', '#9333EA']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.refHeroContainer}
             >
-              {/* Top Bar inside Hero */}
               <View style={styles.refHeroTopRow}>
                 <View style={styles.refWeatherWidget}>
                   <Icon name="weather-partly-cloudy" size={16} color="#FFFFFF" />
@@ -924,7 +869,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                 </TouchableOpacity>
               </View>
 
-              {/* Center Semi-Circular Arc Safety Score Gauge */}
               <ArcProgressGauge
                 currentValue={`${getSafetyScore()}%`}
                 goalValue="100%"
@@ -932,7 +876,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                 iconName="shield-check"
               />
 
-              {/* Worker Live Vitals Stats Bar below Arc */}
               <View style={styles.refHeroStatsRow}>
                 <View style={styles.refHeroStatItem}>
                   <Text style={styles.refHeroStatLabel}>HEART RATE</Text>
@@ -953,9 +896,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               </View>
             </LinearGradient>
 
-            {/* 2. Custom 2x2 Grid Pastel Cards (Worker Safety Metrics) */}
             <View style={styles.refGridContainer}>
-              {/* Card 1: Fall Guard Card (Peach Pastel Tint) */}
               <TouchableOpacity
                 style={[styles.refCard, styles.refCardPeach]}
                 onPress={() => setActiveTab('fall')}
@@ -975,7 +916,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                 </View>
               </TouchableOpacity>
 
-              {/* Card 2: Heart Rate Monitor Card (Lilac Pastel Tint + ECG Line) */}
               <TouchableOpacity
                 style={[styles.refCard, styles.refCardLilac]}
                 onPress={() => setActiveTab('health')}
@@ -994,7 +934,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                 </View>
               </TouchableOpacity>
 
-              {/* Card 3: Blood Oxygen SpO2 Card (Mint Pastel Tint + Bar Chart) */}
               <TouchableOpacity
                 style={[styles.refCard, styles.refCardMint]}
                 onPress={() => setActiveTab('health')}
@@ -1010,7 +949,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                 <Text style={styles.refMintFooterText}>{spo2}% <Text style={styles.refMintUnit}>SpO2 · Normal</Text></Text>
               </TouchableOpacity>
 
-              {/* Card 4: Body Temp & Heat Index Card (Amber Pastel Tint + Radial Ring) */}
               <TouchableOpacity
                 style={[styles.refCard, styles.refCardAmber]}
                 onPress={() => setActiveTab('weather')}
@@ -1029,8 +967,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               </TouchableOpacity>
             </View>
 
-
-            {/* Centered Full-width Horizontal SOS Panic Container */}
             <TouchableOpacity
               style={styles.sosFullBanner}
               onPress={() => setActiveTab('emergency')}
@@ -1044,7 +980,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               </View>
             </TouchableOpacity>
 
-            {/* End Shift & Log Out Button */}
             <TouchableOpacity
               style={styles.dashboardLogoutBtn}
               onPress={() => setLogoutModalVisible(true)}
@@ -1057,12 +992,9 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
           </View>
         )}
 
-        {/* TAB 1: HEALTH MONITOR */}
         {activeTab === 'health' && (
           <View style={styles.tabContent}>
 
-
-            {/* Vitals Summary Card */}
             <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleContainer}>
@@ -1077,7 +1009,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               </View>
 
               <View style={styles.vitalsRow}>
-                {/* BPM Gauge */}
                 <View style={styles.gaugeBox}>
                   <Text style={styles.gaugeHeader}>HEART RATE</Text>
                   <View style={[styles.circleGauge, { borderColor: getBpmColor() }]}>
@@ -1086,7 +1017,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                   </View>
                 </View>
 
-                {/* SpO2 Gauge */}
                 <View style={styles.gaugeBox}>
                   <Text style={styles.gaugeHeader}>OXYGEN SATURATION</Text>
                   <View style={[styles.circleGauge, { borderColor: getSpo2Color() }]}>
@@ -1095,7 +1025,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                   </View>
                 </View>
 
-                {/* Force Checkin */}
                 <View style={styles.cadenceCheckin}>
                   <TouchableOpacity style={styles.forceCheckinBtn} onPress={handleManualCheckIn} disabled={loadingVitals}>
                     {loadingVitals ? (
@@ -1111,7 +1040,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               </View>
             </View>
 
-            {/* PPG Signal Waveform Visualizer */}
             <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleContainer}>
@@ -1122,8 +1050,7 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                   <Text style={[GLOBAL_STYLES.badgeText, { color: COLORS.primaryLight, marginLeft: 0 }]}>Live Signal</Text>
                 </View>
               </View>
-              
-              {/* PPG graph canvas */}
+
               <View style={styles.ppgCanvas}>
                 <View style={styles.ppgPointsContainer}>
                   {ppgPoints.map((val, idx) => {
@@ -1140,7 +1067,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               </View>
             </View>
 
-            {/* Thermal Strain & Heat Stress Monitor Card */}
             <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleContainer}>
@@ -1184,10 +1110,9 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               </View>
             </View>
 
-            {/* Threshold Health Alerting Controls */}
             <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
               <Text style={styles.sectionHeader}>Alert Simulation</Text>
-              
+
               <View style={styles.anomalyMeterBox}>
                 <Text style={styles.anomalyMeterLabel}>Consecutive Abnormal Samples: </Text>
                 <Text style={[styles.anomalyMeterVal, consecutiveAbnormal > 0 ? { color: COLORS.warning } : { color: COLORS.success }]}>
@@ -1205,11 +1130,9 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               </View>
             </View>
 
-
           </View>
         )}
 
-        {/* TAB 2: FALL DETECTOR */}
         {activeTab === 'fall' && (
           <View style={styles.tabContent}>
             <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
@@ -1242,7 +1165,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                   </Text>
                 </View>
 
-                {/* Live 3D Gyro Coordinates */}
                 <Text style={styles.sectionSubHeader}>Live BMI160 3D Gyroscope Coordinates</Text>
                 <View style={styles.gyroGrid}>
                   <View style={styles.gyroBox}>
@@ -1259,9 +1181,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                   </View>
                 </View>
 
-
-
-                {/* Man-Down Immobility Safety System */}
                 <View style={[
                   styles.heightPanel,
                   manDownActive && { borderColor: COLORS.danger, backgroundColor: 'rgba(239, 68, 68, 0.15)' }
@@ -1341,9 +1260,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
           </View>
         )}
 
-
-
-        {/* TAB 4: SOS EMERGENCY PANEL */}
         {activeTab === 'emergency' && (
           <View style={styles.tabContent}>
             <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
@@ -1387,10 +1303,8 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
           </View>
         )}
 
-        {/* TAB 5: WEATHER & SITE CONDITIONS */}
         {activeTab === 'weather' && (
           <View style={styles.tabContent}>
-            {/* Search Bar & Location Refresh Toolbar */}
             <View style={[GLOBAL_STYLES.glassCard, styles.weatherSearchContainer]}>
               <View style={styles.weatherSearchRow}>
                 <View style={styles.weatherSearchInputWrapper}>
@@ -1430,7 +1344,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
               </View>
             ) : weather ? (
               <>
-                {/* Header: Site Weather & Safety Status */}
                 <View style={[GLOBAL_STYLES.glassCard, styles.card, styles.refCardPeach]}>
                   <View style={styles.cardHeader}>
                     <View style={styles.cardTitleContainer}>
@@ -1458,7 +1371,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                   )}
                 </View>
 
-                {/* 1. Full-Width Container: Temperature */}
                 <View style={[GLOBAL_STYLES.glassCard, styles.weatherFullContainer, styles.refCardAmber]}>
                   <View style={styles.weatherItemLeft}>
                     <View style={[styles.weatherIconCircle, { backgroundColor: 'rgba(255, 255, 255, 0.88)' }]}>
@@ -1474,7 +1386,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                   <Text style={[styles.weatherItemValue, { color: '#B45309' }]}>{weather.temperature}°C</Text>
                 </View>
 
-                {/* 2. Full-Width Container: Wind Speed */}
                 <View style={[GLOBAL_STYLES.glassCard, styles.weatherFullContainer, styles.refCardMint]}>
                   <View style={styles.weatherItemLeft}>
                     <View style={[styles.weatherIconCircle, { backgroundColor: 'rgba(255, 255, 255, 0.88)' }]}>
@@ -1492,7 +1403,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
                   </Text>
                 </View>
 
-                {/* 3. Full-Width Container: Rainfall */}
                 <View style={[GLOBAL_STYLES.glassCard, styles.weatherFullContainer, styles.refCardLilac]}>
                   <View style={styles.weatherItemLeft}>
                     <View style={[styles.weatherIconCircle, { backgroundColor: 'rgba(255, 255, 255, 0.88)' }]}>
@@ -1529,7 +1439,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         )}
       </ScrollView>
 
-      {/* 🚨 FALL IMPACT POPUP EMERGENCY MODAL 🚨 */}
       <Modal
         visible={fallModalVisible}
         transparent={true}
@@ -1582,7 +1491,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         </View>
       </Modal>
 
-      {/* 🔴 LOGOUT CONFIRMATION MODAL 🔴 */}
       <Modal
         visible={logoutModalVisible}
         transparent={true}
@@ -1629,7 +1537,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
         </View>
       </Modal>
 
-      {/* FLOATING BOTTOM NAVIGATION TAB BAR */}
       <View style={styles.dashBottomNav}>
         <View style={styles.dashBottomNavContent}>
           <TouchableOpacity
@@ -1652,8 +1559,6 @@ export default function WorkerHomeScreen({ user, onLogout }: WorkerHomeScreenPro
           >
             <Icon name="walk" size={24} color={activeTab === 'fall' ? '#FFFFFF' : '#8B5CF6'} />
           </TouchableOpacity>
-
-
 
           <TouchableOpacity
             style={[styles.dashNavItem, activeTab === 'emergency' && styles.dashNavItemActive]}
@@ -1877,7 +1782,6 @@ const styles = StyleSheet.create({
   tabContent: {
     gap: 16,
   },
-  // ── BLE Wearable Card styles ────────────────────────────────────────────────
   bleCard: {
     borderWidth: 1,
     borderColor: 'rgba(96, 165, 250, 0.2)',
@@ -1938,7 +1842,6 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontStyle: 'italic',
   },
-  // ──────────────────────────────────────────────────────────────────────────────
   card: {
     marginBottom: 0,
   },
@@ -2181,8 +2084,6 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
 
-
-  // Tab 2 details
   movementBody: {
     gap: 12,
   },
@@ -2261,7 +2162,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
 
-  // Tab 3 details
   clockBtn: {
     borderRadius: 8,
     paddingHorizontal: 12,
@@ -2342,7 +2242,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.xs,
   },
 
-  // Tab 4 Details
   sosContainer: {
     alignItems: 'center',
     gap: 20,
@@ -2418,7 +2317,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Tab 5 Weather Details
   weatherSearchContainer: {
     padding: 8,
     marginBottom: 14,
@@ -2532,7 +2430,6 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.weights.semibold,
   },
 
-  // Fall Impact Pop-up Glass Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.65)',
@@ -2647,7 +2544,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Fall countdown Warning Overlay
   fallOverlay: {
     backgroundColor: COLORS.dangerBg,
     borderColor: COLORS.danger,
@@ -2692,7 +2588,6 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.weights.bold,
   },
 
-  // BOTTOM TAB NAVIGATION
   bottomTabBar: {
     position: 'absolute',
     bottom: 0,
@@ -2705,7 +2600,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingBottom: Platform.OS === 'ios' ? 14 : 0, // safe area padding for iOS
+    paddingBottom: Platform.OS === 'ios' ? 14 : 0,
   },
   tabItem: {
     alignItems: 'center',
@@ -2742,8 +2637,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.sm,
     fontWeight: TYPOGRAPHY.weights.semibold,
   },
-  
-  // ── DASHBOARD STYLES ────────────────────────────────────────────────────────
+
   dashboardContainer: {
     paddingHorizontal: 8,
     paddingTop: 10,
@@ -3040,7 +2934,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // ── Reference Image Interface Styles ──
   refHeroContainer: {
     borderRadius: 32,
     padding: 20,
@@ -3301,3 +3194,4 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
 });
+

@@ -14,7 +14,7 @@ export default function SmartwatchHeroCard({
 }: SmartwatchHeroCardProps) {
   return (
     <View style={styles.card}>
-      {/* Background Graphic Circle */}
+
       <View style={styles.watchBgCircle}>
         <View style={styles.watchFrame}>
           <Icon name="watch-variant" size={72} color="#1E1B4B" />
@@ -25,12 +25,10 @@ export default function SmartwatchHeroCard({
         </View>
       </View>
 
-      {/* Hero Typography from Reference Image */}
       <Text style={styles.titleText}>
         Make More Safety for{"\n"}you that <Text style={styles.highlightText}>Matters Most</Text>
       </Text>
 
-      {/* Floating Action Circle Button */}
       <TouchableOpacity
         style={[styles.actionButton, isConnected && styles.actionButtonConnected]}
         onPress={onConnectPress}

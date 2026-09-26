@@ -1,23 +1,18 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
-// Dynamically determine backend URL
-// On Expo Web, we can query window.location.hostname
-// On Expo Go, we can parse the hostUri from expo-constants to find the server's local IP address.
-// On React Native Emulators, localhost works differently (e.g., 10.0.2.2 on Android)
 const getBackendUrl = () => {
   if (Platform.OS === 'web') {
-    // If in web browser, use the current host running the server, or default to 5000
+
     if (typeof window !== 'undefined' && window.location) {
       return `http://${window.location.hostname}:5000`;
     }
   }
 
-  // Extract IP from Expo Constants for physical devices (Expo Go)
   try {
     const hostUri = Constants.expoConfig?.hostUri || Constants.experienceUrl;
     if (hostUri) {
-      // Find IPv4 address in the string
+
       const ipMatch = hostUri.match(/(\d+\.\d+\.\d+\.\d+)/);
       if (ipMatch && ipMatch[1]) {
         console.log(`[API] Determined backend IP: ${ipMatch[1]}`);
@@ -28,7 +23,6 @@ const getBackendUrl = () => {
     console.warn('Failed to get IP from Constants, using default:', err);
   }
 
-  // Hardcode fallback to your machine's exact local IP for Expo Go compatibility
   return 'http://10.34.13.10:5000';
 };
 
@@ -53,7 +47,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  // Auth
+
   login: (username: string, password: string, latitude?: number, longitude?: number) =>
     request<any>('/api/auth/login', {
       method: 'POST',
@@ -72,11 +66,9 @@ export const api = {
       body: JSON.stringify({ userId, latitude: latitude ?? 0, longitude: longitude ?? 0 }),
     }),
 
-  // Workers listing (for supervisor)
   fetchWorkers: () =>
     request<any[]>('/api/users/workers'),
 
-  // Vitals
   fetchVitals: (userId: string, minutes: number = 30) =>
     request<any[]>(`/api/vitals/${userId}?minutes=${minutes}`),
 
@@ -86,7 +78,6 @@ export const api = {
       body: JSON.stringify({ userId, bpm, spo2, source }),
     }),
 
-  // Attendance
   fetchAttendance: (userId?: string) =>
     request<any[]>(userId ? `/api/attendance/${userId}` : '/api/attendance'),
 
@@ -96,7 +87,6 @@ export const api = {
       body: JSON.stringify({ userId, action, latitude, longitude }),
     }),
 
-  // Tasks
   fetchTasks: (userId?: string) =>
     request<any[]>(userId ? `/api/tasks?userId=${userId}` : '/api/tasks'),
 
@@ -112,7 +102,6 @@ export const api = {
       body: JSON.stringify({ status }),
     }),
 
-  // Alerts
   fetchAlerts: (userId?: string) =>
     request<any[]>(userId ? `/api/alerts?userId=${userId}` : '/api/alerts'),
 
@@ -127,7 +116,6 @@ export const api = {
       method: 'PATCH',
     }),
 
-  // Real-time weather (uses device GPS coordinates or city name)
   fetchWeather: (lat?: number, lon?: number, city?: string) => {
     const params = new URLSearchParams();
     if (lat !== undefined && lon !== undefined && (lat !== 0 || lon !== 0)) {

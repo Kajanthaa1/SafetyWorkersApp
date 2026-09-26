@@ -11,7 +11,6 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Enable CORS
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
@@ -20,15 +19,12 @@ app.use(cors({
 
 app.use(express.json());
 
-// Main Router API
 app.use('/api', router);
 
-// Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
 
-// Create Server
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -37,13 +33,11 @@ const io = new Server(server, {
   },
 });
 
-// Attach Socket.io emitter to API routes
 (global as any).io = io;
 setSocketEmitter((event: string, data: any) => {
   io.emit(event, data);
 });
 
-// Socket.io connection logic
 io.on('connection', (socket) => {
   console.log(`Socket client connected: ${socket.id}`);
 
@@ -53,7 +47,6 @@ io.on('connection', (socket) => {
     socket.join(data.userId);
   });
 
-  // Handle direct socket vital updates from wearable
   socket.on('vitals_push', async (data: { userId: string; name: string; bpm: number; spo2: number }) => {
     try {
       const reading = {
@@ -70,7 +63,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle manual fall triggers
   socket.on('fall_trigger', async (data: { userId: string; severity: 'minor' | 'confirmed' }) => {
     try {
       const user = await db.getUserById(data.userId);
@@ -92,7 +84,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle fall cancellation / resolution
   socket.on('fall_cancel', async (data: { id: string; userId: string }) => {
     try {
       await db.updateFallEventStatus(data.id, 'cancelled');
@@ -111,7 +102,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start server and seed Firestore with default accounts
 server.listen(port, async () => {
   console.log(`SafetyWorkerApp backend listening on port ${port}`);
   try {

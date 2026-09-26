@@ -20,31 +20,26 @@ interface AdminDashboardScreenProps {
 }
 
 export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardScreenProps) {
-  // Workers Vitals Map (realtime updates stream into here)
+
   const [workers, setWorkers] = useState<any[]>([]);
   const [workerVitals, setWorkerVitals] = useState<Record<string, any>>({});
-  
-  // Tasks
+
   const [tasks, setTasks] = useState<any[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [selectedWorkerId, setSelectedWorkerId] = useState('');
   const [submittingTask, setSubmittingTask] = useState(false);
 
-  // Attendance
   const [attendance, setAttendance] = useState<any[]>([]);
 
-  // Alerts
   const [alerts, setAlerts] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'alerts' | 'monitor' | 'tasks' | 'attendance'>('dashboard');
 
   useEffect(() => {
-    // Initial fetch
+
     loadInitialData();
 
-    // Init Socket
     const socket = initSocket(user.id, user.role);
 
-    // Socket Event listeners for realtime admin updates
     socket.on('vitals_update', (data: any) => {
       setWorkerVitals(prev => ({
         ...prev,
@@ -57,9 +52,9 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
     });
 
     socket.on('new_fall', (data: any) => {
-      // Reload alerts and show system notification alert
+
       loadAlerts();
-      // Also update the worker's status directly in local state to highlight them
+
       setWorkerVitals(prev => ({
         ...prev,
         [data.userId]: {
@@ -70,7 +65,7 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
     });
 
     socket.on('fall_status_update', (data: any) => {
-      // Refresh alerts
+
       loadAlerts();
     });
 
@@ -97,23 +92,19 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
 
   const loadInitialData = async () => {
     try {
-      // Fetch list of workers
+
       const workerList = await api.fetchWorkers();
       setWorkers(workerList);
       if (workerList.length > 0) {
         setSelectedWorkerId(workerList[0].id);
       }
 
-      // Fetch current alerts
       loadAlerts();
 
-      // Fetch all tasks
       loadTasks();
 
-      // Fetch attendance history
       loadAttendance();
 
-      // Fetch latest vitals for all workers to seed dashboard
       const vitalsSeed: Record<string, any> = {};
       for (const w of workerList) {
         const vitals = await api.fetchVitals(w.id, 5).catch(() => []);
@@ -191,7 +182,6 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
     }
   };
 
-  // Vitals safety coloring helpers
   const getBpmColor = (bpm: number) => {
     if (bpm > 115 || bpm < 55) return COLORS.danger;
     if (bpm > 95 || bpm < 60) return COLORS.warning;
@@ -204,12 +194,11 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
     return COLORS.success;
   };
 
-  // Filter for active alerts (SOS or suspected falls)
   const activeAlerts = alerts.filter(a => a.status === 'active');
 
   return (
     <View style={GLOBAL_STYLES.container}>
-      {/* Admin Header */}
+
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           {activeTab !== 'dashboard' ? (
@@ -239,7 +228,7 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
         {activeTab === 'dashboard' && (
           <View style={styles.dashboardContainer}>
             <View style={styles.refGridContainer}>
-              {/* Card 1: Emergency Alarms */}
+
               <TouchableOpacity
                 style={[styles.refCard, activeAlerts.length > 0 ? styles.refCardDanger : styles.refCardPeach]}
                 onPress={() => setActiveTab('alerts')}
@@ -259,7 +248,6 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
                 </View>
               </TouchableOpacity>
 
-              {/* Card 2: Live Monitor */}
               <TouchableOpacity
                 style={[styles.refCard, styles.refCardLilac]}
                 onPress={() => setActiveTab('monitor')}
@@ -277,7 +265,6 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
                 </View>
               </TouchableOpacity>
 
-              {/* Card 3: Tasks */}
               <TouchableOpacity
                 style={[styles.refCard, styles.refCardMint]}
                 onPress={() => setActiveTab('tasks')}
@@ -295,7 +282,6 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
                 </View>
               </TouchableOpacity>
 
-              {/* Card 4: Attendance */}
               <TouchableOpacity
                 style={[styles.refCard, styles.refCardAmber]}
                 onPress={() => setActiveTab('attendance')}
@@ -322,7 +308,7 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
               <Text style={styles.emptyText}>No active alerts at the moment.</Text>
             ) : (
               <View>
-                {/* Real-time incident flashing banner */}
+
                 {activeAlerts.length > 0 && (
           <View style={styles.alertIncidentBox}>
             <View style={styles.alertHeaderRow}>
@@ -364,7 +350,7 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
 
         {activeTab === 'monitor' && (
           <View style={styles.tabContent}>
-            {/* Section 1: Workers Vitals Monitor Grid */}
+
             <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
           <Text style={styles.cardTitle}>Live Worker Safety Monitor</Text>
           <Text style={styles.cardSubtitle}>Real-time BPM, SpO2, and Movement Tracker</Text>
@@ -372,9 +358,8 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
           <View style={styles.workerGrid}>
             {workers.map(w => {
               const vitals = workerVitals[w.id];
-              const isOffline = !vitals || (Date.now() - vitals.lastUpdated) > 30000; // 30 seconds to account for GSM latency
+              const isOffline = !vitals || (Date.now() - vitals.lastUpdated) > 30000;
 
-              // Check if worker has an ACTIVE, UNRESOLVED fall alert
               const hasActiveFall = activeAlerts.some(a => a.userId === w.id && a.type === 'fall' && a.status === 'active');
 
               return (
@@ -430,19 +415,19 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
                         <Text style={[
                           styles.movementStatVal,
                           {
-                            color: isOffline 
-                              ? COLORS.textMuted 
-                              : (hasActiveFall 
-                                  ? COLORS.danger 
+                            color: isOffline
+                              ? COLORS.textMuted
+                              : (hasActiveFall
+                                  ? COLORS.danger
                                   : COLORS.success)
                           }
                         ]}>
-                          {isOffline 
-                            ? 'Unknown (Offline)' 
-                            : (hasActiveFall 
-                                ? 'FALL TRIGGERED' 
-                                : (vitals.gx && (Math.abs(vitals.gx) > 0.35 || Math.abs(vitals.gy) > 0.35 || Math.abs(vitals.gz) > 0.35) 
-                                    ? 'Active (Moving)' 
+                          {isOffline
+                            ? 'Unknown (Offline)'
+                            : (hasActiveFall
+                                ? 'FALL TRIGGERED'
+                                : (vitals.gx && (Math.abs(vitals.gx) > 0.35 || Math.abs(vitals.gy) > 0.35 || Math.abs(vitals.gz) > 0.35)
+                                    ? 'Active (Moving)'
                                     : 'Normal / Stationary'))}
                         </Text>
                       </View>
@@ -462,10 +447,10 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
 
         {activeTab === 'tasks' && (
           <View style={styles.tabContent}>
-            {/* Section 2: Task Dispatcher Form */}
+
             <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
           <Text style={styles.cardTitle}>Dispatch & Assign Tasks</Text>
-          
+
           <View style={styles.formContainer}>
             <TextInput
               style={styles.input}
@@ -512,7 +497,6 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
             </TouchableOpacity>
           </View>
 
-          {/* Assigned Tasks Grid */}
           <Text style={styles.sectionSubTitle}>Active Tasks Status</Text>
           <View style={styles.taskList}>
             {tasks.length === 0 ? (
@@ -544,7 +528,7 @@ export default function AdminDashboardScreen({ user, onLogout }: AdminDashboardS
 
         {activeTab === 'attendance' && (
           <View style={styles.tabContent}>
-            {/* Section 3: Attendance Shift Logs */}
+
             <View style={[GLOBAL_STYLES.glassCard, styles.card]}>
           <Text style={styles.cardTitle}>Attendance Shift Logs</Text>
           <Text style={styles.cardSubtitle}>Clock-In / Clock-Out timestamps with GPS coords</Text>
@@ -788,7 +772,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   pulseIcon: {
-    // Pulse animation simulated visually
+
   },
   alertList: {
     gap: 10,

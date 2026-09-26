@@ -33,7 +33,6 @@ export default function EcgWaveform({ color = '#8B5CF6', height = 36 }: EcgWavef
     return () => loop.stop();
   }, [pulseAnim]);
 
-  // Render a simulated pulse line with vertical bar peaks
   const peaks = [8, 12, 10, 28, 6, 34, 4, 18, 10, 14, 8];
 
   return (

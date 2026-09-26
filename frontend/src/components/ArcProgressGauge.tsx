@@ -15,17 +15,17 @@ export default function ArcProgressGauge({
   label = 'Safety Index',
   iconName = 'shield-check',
 }: ArcProgressGaugeProps) {
-  // Format formatted value (e.g., 7,235)
-  const displayVal = typeof currentValue === 'number' 
-    ? currentValue.toLocaleString('en-US') 
+
+  const displayVal = typeof currentValue === 'number'
+    ? currentValue.toLocaleString('en-US')
     : currentValue;
 
   return (
     <View style={styles.container}>
-      {/* Outer Semi-Circular Arc Graphic */}
+
       <View style={styles.arcOuterCircle}>
         <View style={styles.arcInnerCircle}>
-          {/* Top Dotted Arc Line Emulation */}
+
           <View style={styles.dotsRow}>
             {Array.from({ length: 15 }).map((_, i) => (
               <View
@@ -38,7 +38,6 @@ export default function ArcProgressGauge({
             ))}
           </View>
 
-          {/* Center Content */}
           <View style={styles.centerBox}>
             <View style={styles.iconCircle}>
               <Icon name={iconName} size={22} color="#6C5CE7" />

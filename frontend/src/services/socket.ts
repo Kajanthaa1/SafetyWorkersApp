@@ -22,7 +22,7 @@ export const initSocket = (userId: string, role: string) => {
 
   socket.on('connect', () => {
     console.log('Connected to WebSocket server');
-    // Join appropriate rooms
+
     socket?.emit('join', { userId, role });
   });
 
@@ -42,7 +42,6 @@ export const disconnectSocket = () => {
   }
 };
 
-// Event emitter wrappers
 export const emitVitalsPush = (userId: string, name: string, bpm: number, spo2: number) => {
   socket?.emit('vitals_push', { userId, name, bpm, spo2 });
 };

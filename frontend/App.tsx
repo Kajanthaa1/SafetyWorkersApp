@@ -7,7 +7,6 @@ import WorkerHomeScreen from './src/screens/WorkerHomeScreen';
 import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
 import { api } from './src/services/api';
 
-// Error Boundary catches any render-time errors so the app never shows a blank page
 interface ErrorBoundaryState { hasError: boolean; error: string | null; }
 class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
   constructor(props: any) {
@@ -43,7 +42,7 @@ export default function App() {
   const [user, setUser] = useState<any | null>(null);
 
   const handleLogout = async (coords?: { latitude: number; longitude: number }) => {
-    // Auto clock-out when worker logs out
+
     if (user && user.role === 'worker') {
       try {
         await api.logout(user.id, coords?.latitude, coords?.longitude);
@@ -80,7 +79,7 @@ const styles = StyleSheet.create({
   appContainer: {
     flex: 1,
     width: '100%',
-    maxWidth: Platform.OS === 'web' ? 768 : undefined, // Center on large web viewports for an app-like feel
+    maxWidth: Platform.OS === 'web' ? 768 : undefined,
     alignSelf: 'center',
     backgroundColor: COLORS.background,
   },

@@ -5,7 +5,6 @@ import { db, User, hashPassword } from './db';
 
 export const router = Router();
 
-// ── Socket Emitter ─────────────────────────────────────────────────────────────
 export let socketEmitter: ((event: string, data: any) => void) | null = null;
 export function setSocketEmitter(emitter: (event: string, data: any) => void) {
   socketEmitter = emitter;
@@ -20,7 +19,6 @@ export function emitSocket(event: string, data: any) {
   }
 }
 
-// ── Helper: Device Token Auth ──────────────────────────────────────────────────
 async function getDeviceUser(req: Request): Promise<User | null> {
   const authHeader = req.headers['authorization'];
   let token = req.headers['x-device-token'] as string;
@@ -30,7 +28,6 @@ async function getDeviceUser(req: Request): Promise<User | null> {
   }
   if (!token) return null;
 
-  // Check for active worker sanoo1 and automatically bind hardware token to sanoo1
   const sanooUser = await db.getUserByUsername('sanoo1');
   if (sanooUser) {
     if (sanooUser.deviceToken !== token) {
@@ -43,13 +40,11 @@ async function getDeviceUser(req: Request): Promise<User | null> {
   const found = await db.getUserByDeviceToken(token);
   if (found) return found;
 
-  // Fallback: If device token is default hardware token, return last registered worker
   const users = await db.getUsers();
   const worker = users.filter(u => u.role === 'worker').pop();
   return worker || null;
 }
 
-// ── Helper: Fetch OpenWeatherMap real weather ──────────────────────────────────────
 const OWM_API_KEY = 'a1847fbc4fe0b3d668f78717f250733b';
 
 function fetchJson(url: string): Promise<any> {
@@ -73,7 +68,7 @@ async function fetchOpenWeatherMap(options: { lat?: number; lon?: number; city?:
   } else if (options.lat !== undefined && options.lon !== undefined && (options.lat !== 0 || options.lon !== 0)) {
     url = `https://api.openweathermap.org/data/2.5/weather?lat=${options.lat}&lon=${options.lon}&appid=${OWM_API_KEY}&units=metric`;
   } else {
-    // If coordinates are 0,0 or missing, auto-detect location via IP
+
     try {
       const ipInfo = await fetchJson('http://ip-api.com/json');
       if (ipInfo && ipInfo.status === 'success' && ipInfo.lat && ipInfo.lon) {
@@ -84,7 +79,6 @@ async function fetchOpenWeatherMap(options: { lat?: number; lon?: number; city?:
     }
   }
 
-  // If still empty, default to detected regional center
   if (!url) {
     url = `https://api.openweathermap.org/data/2.5/weather?lat=6.9318&lon=79.8863&appid=${OWM_API_KEY}&units=metric`;
   }
@@ -92,10 +86,8 @@ async function fetchOpenWeatherMap(options: { lat?: number; lon?: number; city?:
   return fetchJson(url);
 }
 
-// ── Helper: Consecutive abnormal count (in-memory, per worker) ─────────────────
 const consecutiveAbnormalCounts: Record<string, number> = {};
 
-// ── Vitals processing (shared by BLE & GSM routes) ────────────────────────────
 async function processVitalReading(
   user: User,
   bpm: number,
@@ -167,11 +159,6 @@ async function processVitalReading(
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 1. AUTH ROUTES
-// ─────────────────────────────────────────────────────────────────────────────
-
-// POST /api/auth/signup — create a new user account
 router.post('/auth/signup', async (req: Request, res: Response) => {
   try {
     const { name, username, password, role } = req.body;
@@ -202,7 +189,6 @@ router.post('/auth/signup', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/auth/login — authenticate a user and auto-record attendance (workers)
 router.post('/auth/login', async (req: Request, res: Response) => {
   try {
     const { username, password, latitude, longitude } = req.body;
@@ -216,7 +202,6 @@ router.post('/auth/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid password' });
     }
 
-    // Auto clock-in attendance for workers on login
     if (user.role === 'worker') {
       const lat = Number(latitude) || 0;
       const lon = Number(longitude) || 0;
@@ -247,7 +232,6 @@ router.post('/auth/login', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/auth/logout — auto clock-out worker
 router.post('/auth/logout', async (req: Request, res: Response) => {
   try {
     const { userId, latitude, longitude } = req.body;
@@ -279,9 +263,6 @@ router.post('/auth/logout', async (req: Request, res: Response) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. USERS
-// ─────────────────────────────────────────────────────────────────────────────
 router.get('/users/workers', async (req: Request, res: Response) => {
   try {
     const users = await db.getUsers();
@@ -291,9 +272,6 @@ router.get('/users/workers', async (req: Request, res: Response) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. VITALS
-// ─────────────────────────────────────────────────────────────────────────────
 router.get('/vitals/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
@@ -321,9 +299,6 @@ router.post('/vitals', async (req: Request, res: Response) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 4. GSM DEVICE ENDPOINTS
-// ─────────────────────────────────────────────────────────────────────────────
 router.post('/device/vitals', async (req: Request, res: Response) => {
   try {
     const user = await getDeviceUser(req);
@@ -385,8 +360,7 @@ router.post('/device/alert', async (req: Request, res: Response) => {
 router.post('/sensor', async (req: Request, res: Response) => {
   try {
     const { workerId, bpm, spo2, gx, gy, gz, fall, alert, imuOnline } = req.body;
-    
-    // Find user by username or ID, normalizing worker01 <-> worker1
+
     let user = await db.getUserByUsername(workerId);
     if (!user && workerId) {
       user = await db.getUserById(workerId);
@@ -400,15 +374,15 @@ router.post('/sensor', async (req: Request, res: Response) => {
       if (sanooUser) user = sanooUser;
     }
     if (!user) {
-      // Fallback: return last registered worker
+
       const users = await db.getUsers();
       user = users.filter(u => u.role === 'worker').pop() || null;
     }
-    
+
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     if (alert && fall) {
-        // Trigger fall alert
+
         const newAlert = {
           id: `alert_${Date.now()}`,
           userId: user.id,
@@ -430,15 +404,14 @@ router.post('/sensor', async (req: Request, res: Response) => {
         emitSocket('new_fall', { userId: user.id, name: user.name, fall: fallEvent });
         emitSocket('new_alert', { userId: user.id, name: user.name, alert: newAlert });
     }
-    
+
     console.log(`[Sensor] Inbound from ${workerId}: BPM=${bpm}, SpO2=${spo2}, user=${user.name} (${user.id})`);
     if (bpm !== null || spo2 !== null) {
-      // Process vitals with fallback if one is momentarily null
+
       const safeBpm = bpm !== null ? Number(bpm) : 75;
       const safeSpo2 = spo2 !== null ? Number(spo2) : 98;
       await processVitalReading(user, safeBpm, safeSpo2, gx, gy, gz, 'gsm', 1.5, 1);
 
-      // If mapped user is worker1 and active worker sanoo1 is also in system, keep sanoo1 synced
       if (user.username !== 'sanoo1') {
         const sanooUser = await db.getUserByUsername('sanoo1');
         if (sanooUser) {
@@ -446,7 +419,7 @@ router.post('/sensor', async (req: Request, res: Response) => {
         }
       }
     } else if (gx !== undefined || gy !== undefined || gz !== undefined) {
-      // Even if finger is momentarily off, stream live motion / gyro to worker app
+
       emitSocket('vitals_update', {
         userId: user.id,
         name: user.name,
@@ -462,7 +435,7 @@ router.post('/sensor', async (req: Request, res: Response) => {
         },
       });
     }
-    
+
     return res.status(201).json({ success: true });
   } catch (err) {
     console.error('Error in /sensor:', err);
@@ -470,9 +443,6 @@ router.post('/sensor', async (req: Request, res: Response) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 5. ATTENDANCE
-// ─────────────────────────────────────────────────────────────────────────────
 router.get('/attendance/:userId', async (req: Request, res: Response) => {
   try {
     const history = await db.getAttendance(req.params.userId);
@@ -518,9 +488,6 @@ router.post('/attendance', async (req: Request, res: Response) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 6. TASKS
-// ─────────────────────────────────────────────────────────────────────────────
 router.get('/tasks', async (req: Request, res: Response) => {
   try {
     const userId = req.query.userId as string | undefined;
@@ -577,9 +544,6 @@ router.patch('/tasks/:id', async (req: Request, res: Response) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 7. ALERTS / SOS
-// ─────────────────────────────────────────────────────────────────────────────
 router.get('/alerts', async (req: Request, res: Response) => {
   try {
     const userId = req.query.userId as string | undefined;
@@ -631,9 +595,6 @@ router.patch('/alerts/:id/resolve', async (req: Request, res: Response) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 8. REAL-TIME WEATHER (OpenWeatherMap)
-// ─────────────────────────────────────────────────────────────────────────────
 router.get('/weather', async (req: Request, res: Response) => {
   const lat = req.query.lat ? parseFloat(req.query.lat as string) : undefined;
   const lon = req.query.lon ? parseFloat(req.query.lon as string) : undefined;
@@ -641,7 +602,7 @@ router.get('/weather', async (req: Request, res: Response) => {
 
   try {
     const weatherData = await fetchOpenWeatherMap({ lat, lon, city });
-    
+
     if (weatherData.cod !== 200) {
       throw new Error(weatherData.message || 'Error fetching weather');
     }
@@ -649,15 +610,10 @@ router.get('/weather', async (req: Request, res: Response) => {
     const tempC = Math.round(weatherData.main.temp);
     const feelsLikeC = Math.round(weatherData.main.feels_like ?? tempC);
 
-    // Wind speed:
-    // OpenWeatherMap returns wind speed in m/s (metric).
-    // Convert to km/h: 1 m/s = 3.6 km/h
-    // Convert to knots: 1 m/s = 1.94384 knots
     const windSpeedMs = parseFloat((weatherData.wind?.speed || 0).toFixed(1));
     const windSpeedKmH = Math.round(windSpeedMs * 3.6);
     const windKnots = Math.round(windSpeedMs * 1.94384);
 
-    // Precipitation (rain volume in mm).
     let precipitationMm = 0;
     if (weatherData.rain) {
       if (typeof weatherData.rain['1h'] === 'number') {
@@ -671,21 +627,18 @@ router.get('/weather', async (req: Request, res: Response) => {
       }
     }
     const humidity = Math.round(weatherData.main.humidity);
-    
-    // OpenWeatherMap provides its own text descriptions (e.g., "broken clouds")
+
     let description = 'Clear Sky';
-    let weatherCode = 800; // default clear
+    let weatherCode = 800;
     if (weatherData.weather && weatherData.weather.length > 0) {
       description = weatherData.weather[0].description;
-      // Capitalize first letter
+
       description = description.charAt(0).toUpperCase() + description.slice(1);
       weatherCode = weatherData.weather[0].id;
     }
 
-    // Safety hazard evaluation:
-    // Working at height threshold: > 38 km/h (~20 knots)
     const highWind = windSpeedKmH > 38 || windKnots > 20;
-    const lightningRisk = weatherCode >= 200 && weatherCode < 300; // Thunderstorm codes in OWM
+    const lightningRisk = weatherCode >= 200 && weatherCode < 300;
     const heatIndexDanger = feelsLikeC >= 35 || tempC >= 35;
     const heavyRain = precipitationMm > 5 || (weatherCode >= 502 && weatherCode <= 504);
 
@@ -710,7 +663,7 @@ router.get('/weather', async (req: Request, res: Response) => {
       },
       temperature: tempC,
       feelsLike: feelsLikeC,
-      windSpeed: windSpeedKmH, // Primary unit in km/h
+      windSpeed: windSpeedKmH,
       windSpeedKmH,
       windSpeedKnots: windKnots,
       windSpeedMs,

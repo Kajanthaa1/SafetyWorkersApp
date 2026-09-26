@@ -23,7 +23,6 @@ type Mode = 'signin' | 'signup';
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [mode, setMode] = useState<Mode>('signin');
 
-  // Sign In state
   const [siUsername, setSiUsername] = useState('');
   const [siPassword, setSiPassword] = useState('');
   const [siLoading, setSiLoading] = useState(false);
@@ -31,7 +30,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [siShowPass, setSiShowPass] = useState(false);
   const [siFocusedInput, setSiFocusedInput] = useState<string | null>(null);
 
-  // Sign Up state
   const [suName, setSuName] = useState('');
   const [suUsername, setSuUsername] = useState('');
   const [suPassword, setSuPassword] = useState('');
@@ -43,7 +41,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [suRole, setSuRole] = useState<'worker' | 'admin'>('worker');
   const [suFocusedInput, setSuFocusedInput] = useState<string | null>(null);
 
-  // ── Sign In ──────────────────────────────────────────────────────────────────
   const handleSignIn = async () => {
     if (!siUsername.trim()) { setSiError('Username is required'); return; }
     if (!siPassword.trim()) { setSiError('Password is required'); return; }
@@ -60,7 +57,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     }
   };
 
-  // ── Sign Up ──────────────────────────────────────────────────────────────────
   const handleSignUp = async () => {
     setSuError(null);
     if (!suName.trim()) { setSuError('Full name is required'); return; }
@@ -72,7 +68,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     try {
       await api.signup(suName.trim(), suUsername.trim(), suPassword, suRole);
       setSuSuccess(true);
-      // Auto sign-in after successful signup
+
       const user = await api.login(suUsername.trim(), suPassword, 0, 0);
       onLoginSuccess(user);
     } catch (err: any) {
@@ -92,11 +88,10 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Background Ambient Blur Orbs */}
+
         <View style={styles.ambientOrb1} />
         <View style={styles.ambientOrb2} />
 
-        {/* ── Header ── */}
         <View style={styles.header}>
           <View style={styles.logoOuterRing}>
             <View style={styles.logoContainer}>
@@ -110,7 +105,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           </View>
         </View>
 
-        {/* ── Mode Tabs ── */}
         <View style={styles.tabRow}>
           <TouchableOpacity
             id="signin-tab"
@@ -142,7 +136,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           </TouchableOpacity>
         </View>
 
-        {/* ── Sign In Form ── */}
         {mode === 'signin' && (
           <View style={[GLOBAL_STYLES.glassCard, styles.formCard]}>
             <View style={styles.cardHeader}>
@@ -237,7 +230,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           </View>
         )}
 
-        {/* ── Sign Up Form ── */}
         {mode === 'signup' && (
           <View style={[GLOBAL_STYLES.glassCard, styles.formCard]}>
             <View style={styles.cardHeader}>
@@ -353,7 +345,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               />
             </View>
 
-            {/* Role Picker Card */}
             <View style={styles.rolePickerContainer}>
               <Text style={styles.rolePickerLabel}>Select Account Role</Text>
               <View style={styles.roleButtonsRow}>
@@ -387,7 +378,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               </View>
             </View>
 
-            {/* Password strength indicator */}
             {suPassword.length > 0 && (
               <View style={styles.strengthContainer}>
                 <View style={styles.strengthRow}>
@@ -446,7 +436,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           </View>
         )}
 
-        {/* ── Role Info Banner ── */}
         <View style={styles.infoBanner}>
           <View style={styles.infoBannerIcon}>
             <Icon name="shield-lock" size={16} color={COLORS.primary} />
@@ -546,7 +535,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  // Mode Tabs (Frosted Glass Container)
+
   tabRow: {
     flexDirection: 'row',
     backgroundColor: 'rgba(234, 239, 248, 0.65)',
@@ -588,7 +577,7 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: '#FFFFFF',
   },
-  // Form card
+
   formCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 28,
@@ -618,7 +607,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
   },
-  // Inputs
+
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -659,7 +648,7 @@ const styles = StyleSheet.create({
   eyeIcon: {
     padding: 6,
   },
-  // Error
+
   errorRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -677,7 +666,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
-  // Password strength
+
   strengthContainer: {
     marginBottom: 14,
   },
@@ -698,7 +687,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'right',
   },
-  // Buttons
+
   button: {
     backgroundColor: '#6C5CE7',
     borderRadius: 14,
@@ -725,7 +714,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  // Switch mode link
+
   switchModeRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -740,7 +729,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
-  // Role Picker Card Style
+
   rolePickerContainer: {
     marginBottom: 16,
     marginTop: 4,
@@ -798,7 +787,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 1,
   },
-  // Info banner
+
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -824,4 +813,3 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
 });
-

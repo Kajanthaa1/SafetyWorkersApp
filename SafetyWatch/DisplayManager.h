@@ -1,40 +1,8 @@
-/*
- * DisplayManager.h
- * Smart IoT Worker Safety Watch - Group 10
- *
- * OLED screen: shows BPM, SpO2 and fall status.
- *
- * ==========================================================
- * WHY THE SCREEN WAS BREAKING UP
- *
- * The SSD1306 needs command bytes before every frame telling it
- * WHERE to put the picture. The MAX30102 and BMI160 use the same
- * two wires. When their traffic disturbs those command bytes, the
- * picture lands on the wrong rows - that is why the bottom line
- * appeared at the top with streaks underneath.
- *
- * THREE FIXES IN THIS FILE:
- *  1. The screen re-initialises itself every few seconds, so any
- *     corruption clears by itself instead of staying broken.
- *  2. A short pause before and after each frame, so the display
- *     transfer does not overlap with sensor traffic.
- *  3. Simple layout: text only, no lines or filled boxes. Fewer
- *     drawing commands means less to go wrong.
- * ==========================================================
- *
- * IF IT IS STILL BAD DURING YOUR DEMO:
- *   set ENABLE_DISPLAY to 0 below. Sensors and serial keep working.
- *
- * LIBRARIES: "Adafruit GFX Library" + "Adafruit SSD1306"
- */
-
 #pragma once
 
-#define ENABLE_DISPLAY   1    // 1 = use screen | 0 = skip screen completely
-#define USE_SH1106       0    // 0 = SSD1306 (0.96") | 1 = SH1106 (1.3")
+#define ENABLE_DISPLAY   1
+#define USE_SH1106       0
 
-// How often to rebuild the screen from scratch (milliseconds).
-// This is what makes a broken picture repair itself.
 #define DISPLAY_REINIT_MS  4000
 
 #include <Arduino.h>
@@ -63,9 +31,6 @@
 class DisplayManager {
   public:
 
-    // =================================================
-    // START THE SCREEN
-    // =================================================
     bool begin() {
 #if !ENABLE_DISPLAY
       return false;
@@ -82,9 +47,6 @@ class DisplayManager {
 
     bool ready() const { return _ready; }
 
-    // =================================================
-    // BOOT MESSAGE
-    // =================================================
     void showBootMessage(const char* line1, const char* line2 = nullptr) {
       if (!_ready) return;
 #if ENABLE_DISPLAY
@@ -99,9 +61,6 @@ class DisplayManager {
 #endif
     }
 
-    // =================================================
-    // FALL ALERT - big and simple
-    // =================================================
     void showFallAlert() {
       if (!_ready) return;
 #if ENABLE_DISPLAY
@@ -123,26 +82,12 @@ class DisplayManager {
 #endif
     }
 
-    /* =================================================
-     * MAIN SCREEN  (text only - nothing fancy)
-     *
-     *   WORKER MONITOR
-     *
-     *   BPM       88
-     *   SpO2      97%
-     *
-     *   FALL: NONE
-     * =================================================
-     */
     void showStatus(bool fingerOn, bool dataValid,
                     int bpm, int spo2, bool fall, bool imuOK) {
       if (!_ready) return;
 #if ENABLE_DISPLAY
       unsigned long now = millis();
 
-      // ---- self healing ----
-      // Every few seconds, restart the panel completely.
-      // If the picture went wrong, this puts it right again.
       bool timeToReinit = (now - _lastReinit >= DISPLAY_REINIT_MS);
 
       if (timeToReinit) {
@@ -151,7 +96,6 @@ class DisplayManager {
         _forceRedraw = true;
       }
 
-      // ---- skip if nothing changed ----
       if (!_forceRedraw &&
           fingerOn == _lastFinger && dataValid == _lastValid &&
           bpm == _lastBpm && spo2 == _lastSpo2 &&
@@ -167,12 +111,10 @@ class DisplayManager {
       _oled->clearDisplay();
       _oled->setTextColor(OLED_WHITE);
 
-      // ---------- title ----------
       _oled->setTextSize(1);
       _oled->setCursor(0, 0);
       _oled->print(F("WORKER MONITOR"));
 
-      // ---------- BPM ----------
       _oled->setTextSize(1);
       _oled->setCursor(0, 18);
       _oled->print(F("BPM"));
@@ -183,7 +125,6 @@ class DisplayManager {
       else if (fingerOn) _oled->print(F(".."));
       else               _oled->print(F("--"));
 
-      // ---------- SpO2 ----------
       _oled->setTextSize(1);
       _oled->setCursor(0, 38);
       _oled->print(F("SpO2"));
@@ -194,7 +135,6 @@ class DisplayManager {
       else if (fingerOn)   _oled->print(F(".."));
       else                 _oled->print(F("--"));
 
-      // ---------- fall status ----------
       _oled->setTextSize(1);
       _oled->setCursor(0, 56);
 
@@ -221,38 +161,30 @@ class DisplayManager {
     int  _lastBpm = -1,       _lastSpo2 = -1;
 
 #if ENABLE_DISPLAY
-    // =================================================
-    // Start (or restart) the panel and fix its settings
-    // =================================================
+
     bool _startPanel() {
   #if USE_SH1106
       if (!_oled->begin(OLED_ADDR, true)) return false;
   #else
       if (!_oled->begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) return false;
 
-      // Tell the panel exactly how to lay out the picture.
-      // These are the settings that get corrupted by bus noise,
-      // so we set them again every time.
-      _oled->ssd1306_command(SSD1306_SETSTARTLINE | 0x00);  // start at row 0
-      _oled->ssd1306_command(SSD1306_MEMORYMODE);           // addressing mode
-      _oled->ssd1306_command(0x00);                         // horizontal
-      _oled->ssd1306_command(SSD1306_SEGREMAP | 0x01);      // left/right correct
-      _oled->ssd1306_command(SSD1306_COMSCANDEC);           // top/bottom correct
+      _oled->ssd1306_command(SSD1306_SETSTARTLINE | 0x00);
+      _oled->ssd1306_command(SSD1306_MEMORYMODE);
+      _oled->ssd1306_command(0x00);
+      _oled->ssd1306_command(SSD1306_SEGREMAP | 0x01);
+      _oled->ssd1306_command(SSD1306_COMSCANDEC);
   #endif
 
-      _oled->setTextWrap(false);     // long text must not spill onto other rows
+      _oled->setTextWrap(false);
       _oled->clearDisplay();
       _oled->display();
       return true;
     }
 
-    // =================================================
-    // Send one frame, kept away from sensor traffic
-    // =================================================
     void _sendFrame() {
-      delay(2);            // let the bus settle before the big transfer
-      _oled->display();    // sends the whole 1KB picture
-      delay(2);            // and settle again afterwards
+      delay(2);
+      _oled->display();
+      delay(2);
     }
 #endif
 };

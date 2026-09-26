@@ -1,62 +1,55 @@
 import { StyleSheet, Platform } from 'react-native';
 
 export const COLORS = {
-  // Main Theme Colors (Purple / Violet Gradient Focus)
-  background: '#F6F8FD',         // Modern clean light backdrop matching UI mockup
-  backgroundDark: '#0F0C20',     // Deep dark purple option
-  surface: '#FFFFFF',            // Clean white card background
-  surfaceDark: '#1A162B',        // Dark surface
+
+  background: '#F6F8FD',
+  backgroundDark: '#0F0C20',
+  surface: '#FFFFFF',
+  surfaceDark: '#1A162B',
   surfaceLight: '#F0F2FA',
   border: '#EAEFF8',
   borderDark: 'rgba(255, 255, 255, 0.1)',
-  
-  // Vibrant Purple Hero Gradient Palette (Matches Reference Image)
-  purpleHeroStart: '#6C5CE7',    // Primary deep purple
-  purpleHeroMid: '#8B5CF6',      // Bright violet
-  purpleHeroEnd: '#9333EA',      // Rich magenta-purple
+
+  purpleHeroStart: '#6C5CE7',
+  purpleHeroMid: '#8B5CF6',
+  purpleHeroEnd: '#9333EA',
   purpleGradient: ['#6C5CE7', '#8B5CF6', '#9333EA'] as const,
   purpleSubtle: '#F0EDFF',
-  
-  // Typography Colors
-  text: '#1E1B4B',               // Deep purple-black text for crisp contrast
+
+  text: '#1E1B4B',
   textLight: '#FFFFFF',
   textSecondary: '#64748B',
   textMuted: '#94A3B8',
-  
-  // Card Tints (Exact pastel tones from reference image)
-  // Card Tints (Light Glassmorphism Translucent Tints)
+
   cardPeach: 'rgba(255, 243, 238, 0.78)',
   cardPeachBorder: 'rgba(255, 255, 255, 0.9)',
   cardPeachAccent: '#FF6B4A',
   cardPeachText: '#C0392B',
-  
+
   cardLilac: 'rgba(246, 240, 255, 0.78)',
   cardLilacBorder: 'rgba(255, 255, 255, 0.9)',
   cardLilacAccent: '#8B5CF6',
   cardLilacText: '#6D28D9',
-  
+
   cardMint: 'rgba(235, 251, 250, 0.78)',
   cardMintBorder: 'rgba(255, 255, 255, 0.9)',
   cardMintAccent: '#14B8A6',
   cardMintText: '#0F766E',
-  
+
   cardAmber: 'rgba(255, 251, 235, 0.78)',
   cardAmberBorder: 'rgba(255, 255, 255, 0.9)',
   cardAmberAccent: '#F59E0B',
   cardAmberText: '#B45309',
 
-  // Status Colors
-  success: '#10B981',       // Green for OK
-  warning: '#F59E0B',       // Amber for low battery, warnings, idle
-  danger: '#EF4444',        // Red for falls, manual SOS
-  info: '#3B82F6',          // Blue for general info
-  
-  // Accents
-  primary: '#6C5CE7',       // Purple primary accent
+  success: '#10B981',
+  warning: '#F59E0B',
+  danger: '#EF4444',
+  info: '#3B82F6',
+
+  primary: '#6C5CE7',
   primaryLight: '#A78BFA',
   primaryBg: 'rgba(108, 92, 231, 0.1)',
-  
-  // Shorthands for transparent variants
+
   successBg: 'rgba(16, 185, 129, 0.12)',
   warningBg: 'rgba(245, 158, 11, 0.12)',
   dangerBg: 'rgba(239, 68, 68, 0.12)',

@@ -1,24 +1,11 @@
-/*
- * BMI160Sensor.h
- * Smart IoT Worker Safety Watch - Group 10
- *
- * Handles the BMI160 motion sensor (accelerometer + gyroscope).
- * Also contains the 3-phase fall detection state machine.
- *
- * No external library needed. We talk to the chip registers directly,
- * because the DFRobot library reported "init OK" while leaving the
- * sensors asleep, which gave zero readings.
- */
-
 #pragma once
 
 #include <Arduino.h>
 #include <Wire.h>
 
-// ---------------- BMI160 registers ----------------
 #define BMI160_REG_CHIP_ID    0x00
 #define BMI160_REG_PMU_STATUS 0x03
-#define BMI160_REG_DATA_GYRO  0x0C   // gyro X,Y,Z then accel X,Y,Z = 12 bytes
+#define BMI160_REG_DATA_GYRO  0x0C
 #define BMI160_REG_ACC_CONF   0x40
 #define BMI160_REG_ACC_RANGE  0x41
 #define BMI160_REG_GYR_CONF   0x42
@@ -31,32 +18,27 @@
 #define BMI160_CMD_ACC_NORMAL 0x11
 #define BMI160_CMD_GYR_NORMAL 0x15
 
-// ---------------- Scaling (from the datasheet) ----------------
-#define ACCEL_LSB_PER_G   16384.0f   // +-2g  range
-#define GYRO_LSB_PER_DPS  16.4f      // +-2000 dps range
+#define ACCEL_LSB_PER_G   16384.0f
+#define GYRO_LSB_PER_DPS  16.4f
 
-// ---------------- Fall detection thresholds ----------------
-#define FALL_FREEFALL_G      0.5f    // below this = falling
-#define FALL_IMPACT_G        2.5f    // above this = hit the ground
-#define FALL_FREEFALL_WINDOW 800     // ms: impact must follow free fall
-#define FALL_STILL_DELAY     1200    // ms: wait before checking stillness
+#define FALL_FREEFALL_G      0.5f
+#define FALL_IMPACT_G        2.5f
+#define FALL_FREEFALL_WINDOW 800
+#define FALL_STILL_DELAY     1200
 #define FALL_STILL_ACCEL_LO  0.75f
 #define FALL_STILL_ACCEL_HI  1.25f
 #define FALL_STILL_GYRO_DPS  60.0f
 
 class BMI160Sensor {
   public:
-    // ---- public readings ----
-    float ax = 0, ay = 0, az = 0;   // acceleration in g
-    float gx = 0, gy = 0, gz = 0;   // rotation in degrees per second
+
+    float ax = 0, ay = 0, az = 0;
+    float gx = 0, gy = 0, gz = 0;
     float accelMagnitude = 0;
     float gyroMagnitude  = 0;
 
-    // =================================================
-    // START THE SENSOR
-    // =================================================
     bool begin() {
-      // --- find the chip at 0x69 or 0x68 ---
+
       uint8_t tryAddr[2] = { 0x69, 0x68 };
       bool found = false;
 
@@ -68,18 +50,15 @@ class BMI160Sensor {
 
       if (!found) return false;
 
-      // --- reset ---
       _write8(BMI160_REG_CMD, BMI160_CMD_SOFT_RESET);
       delay(150);
 
-      // --- speed and range BEFORE waking up ---
-      _write8(BMI160_REG_ACC_CONF,  0x28);   // 100 Hz
-      _write8(BMI160_REG_ACC_RANGE, 0x03);   // +-2g
-      _write8(BMI160_REG_GYR_CONF,  0x28);   // 100 Hz
-      _write8(BMI160_REG_GYR_RANGE, 0x00);   // +-2000 dps
+      _write8(BMI160_REG_ACC_CONF,  0x28);
+      _write8(BMI160_REG_ACC_RANGE, 0x03);
+      _write8(BMI160_REG_GYR_CONF,  0x28);
+      _write8(BMI160_REG_GYR_RANGE, 0x00);
       delay(20);
 
-      // --- wake both sensors, retry until confirmed ---
       for (uint8_t attempt = 0; attempt < 5; attempt++) {
         _write8(BMI160_REG_CMD, BMI160_CMD_ACC_NORMAL);
         delay(100);
@@ -94,7 +73,6 @@ class BMI160Sensor {
       return false;
     }
 
-    // PMU_STATUS: accel = bits[5:4], gyro = bits[3:2]. 01 = normal mode.
     bool powerModesOK() {
       _pmuStatus = _read8(BMI160_REG_PMU_STATUS);
       bool accOK = ((_pmuStatus >> 4) & 0x03) == 0x01;
@@ -106,9 +84,6 @@ class BMI160Sensor {
     uint8_t chipId()    const { return _chipId; }
     uint8_t pmuStatus() const { return _pmuStatus; }
 
-    // =================================================
-    // READ NEW DATA
-    // =================================================
     bool update() {
       uint8_t buf[12];
       if (!_readBurst(BMI160_REG_DATA_GYRO, buf, 12)) return false;
@@ -120,7 +95,6 @@ class BMI160Sensor {
       int16_t ray = (int16_t)((buf[9]  << 8) | buf[8]);
       int16_t raz = (int16_t)((buf[11] << 8) | buf[10]);
 
-      // raw counts -> real units
       gx = rgx / GYRO_LSB_PER_DPS;
       gy = rgy / GYRO_LSB_PER_DPS;
       gz = rgz / GYRO_LSB_PER_DPS;
@@ -150,7 +124,6 @@ class BMI160Sensor {
     unsigned long _freefallTime = 0, _impactTime = 0;
     bool _fallConfirmed = false;
 
-    // ---------- low level I2C ----------
     void _write8(uint8_t reg, uint8_t val) {
       Wire.beginTransmission(_addr);
       Wire.write(reg);
@@ -175,10 +148,6 @@ class BMI160Sensor {
       return true;
     }
 
-    // ---------- fall detection ----------
-    // A real fall has 3 parts in order:
-    //   free fall -> impact -> lying still
-    // Checking all 3 avoids false alarms from hammering or arm drops.
     void _runFallStateMachine() {
       unsigned long now = millis();
 
@@ -195,7 +164,7 @@ class BMI160Sensor {
             _fallState = IMPACT;
             _impactTime = now;
           } else if (now - _freefallTime > FALL_FREEFALL_WINDOW) {
-            _fallState = IDLE;      // no impact came - false alarm
+            _fallState = IDLE;
           }
           break;
 

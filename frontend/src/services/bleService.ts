@@ -1,44 +1,14 @@
-/**
- * bleService.ts
- * 
- * Handles all Bluetooth Low Energy (BLE) communication with the ESP32-S3 wearable.
- * 
- * ------- IMPORTANT FOR ESP32 FIRMWARE DEVELOPER --------
- * The ESP32 must advertise a BLE GATT server with the following UUIDs:
- *
- *   Service UUID:   "4FAFC201-1FB5-459E-8FCC-C5C9C331914B"
- *
- *   Characteristics:
- *     Heart Rate (BPM)  : "BEB5483E-36E1-4688-B7F5-EA07361B26A8"  [NOTIFY, READ]
- *       Payload: 1 byte, unsigned integer (e.g., 0x4C = 76 BPM)
- *
- *     SpO2 (%)          : "BEB5483E-36E1-4688-B7F5-EA07361B26A9"  [NOTIFY, READ]
- *       Payload: 1 byte, unsigned integer (e.g., 0x62 = 98%)
- *
- *     Fall Detected     : "BEB5483E-36E1-4688-B7F5-EA07361B26AA"  [NOTIFY]
- *       Payload: 1 byte: 0x01 = fall detected, 0x00 = idle/clear
- *
- *     Buzzer Control    : "BEB5483E-36E1-4688-B7F5-EA07361B26AB"  [WRITE]
- *       Payload: 0x01 = buzz once (SOS confirmation), 0x00 = stop
- *
- * Device Advertisement Name: "SafetyBand"
- * -------------------------------------------------------
- */
-
 import { BleManager, Device, State, Characteristic } from 'react-native-ble-plx';
 import { Alert, Platform, PermissionsAndroid } from 'react-native';
 
-// ── BLE UUIDs (must match ESP32 firmware exactly) ──────────────────────────────
 export const BLE_SERVICE_UUID        = '4FAFC201-1FB5-459E-8FCC-C5C9C331914B';
 export const CHAR_HEART_RATE_UUID    = 'BEB5483E-36E1-4688-B7F5-EA07361B26A8';
 export const CHAR_SPO2_UUID          = 'BEB5483E-36E1-4688-B7F5-EA07361B26A9';
 export const CHAR_FALL_UUID          = 'BEB5483E-36E1-4688-B7F5-EA07361B26AA';
 export const CHAR_BUZZER_UUID        = 'BEB5483E-36E1-4688-B7F5-EA07361B26AB';
 
-// The BLE advertisement name the ESP32 broadcasts
 export const ESP32_DEVICE_NAME       = 'SafetyBand';
 
-// ── Types ───────────────────────────────────────────────────────────────────────
 export type BleStatus =
   | 'idle'
   | 'scanning'
@@ -54,32 +24,25 @@ export interface BleCallbacks {
   onStatusChange: (status: BleStatus) => void;
 }
 
-// ── Module-level singletons ─────────────────────────────────────────────────────
 let manager: BleManager | null = null;
 let connectedDevice: Device | null = null;
 let callbacks: BleCallbacks | null = null;
 
-// Reconnection and Scan Guards
 let isScanning = false;
 let isConnecting = false;
 let autoReconnectEnabled = true;
 let reconnectTimeout: NodeJS.Timeout | null = null;
 
-// ── Helpers ─────────────────────────────────────────────────────────────────────
-
-/** Decode a base64 characteristic value to an unsigned integer (0–255). */
 const decodeUInt8 = (value: string | null): number => {
   if (!value) return 0;
   const bytes = Buffer.from(value, 'base64');
   return bytes[0] ?? 0;
 };
 
-/** Encode an integer to a base64 string for writing to a characteristic. */
 const encodeUInt8 = (value: number): string => {
   return Buffer.from([value]).toString('base64');
 };
 
-/** Request necessary Android Runtime Permissions for Bluetooth LE scanning/connection */
 const requestBluetoothPermissions = async (): Promise<boolean> => {
   if (Platform.OS === 'ios') return true;
 
@@ -109,9 +72,6 @@ const requestBluetoothPermissions = async (): Promise<boolean> => {
   return false;
 };
 
-// ── Public API ──────────────────────────────────────────────────────────────────
-
-/** Must be called once before any other BLE function (e.g., in the top-level component). */
 export const initBle = (): BleManager => {
   if (!manager) {
     manager = new BleManager();
@@ -119,15 +79,10 @@ export const initBle = (): BleManager => {
   return manager;
 };
 
-/** 
- * Start scanning for the ESP32 wearable.
- * Calls onStatusChange when status changes (scanning → connecting → connected / error).
- */
 export const connectToWearable = async (cbs: BleCallbacks) => {
   callbacks = cbs;
   autoReconnectEnabled = true;
 
-  // ── Mitigation [Risk: Permission missing] ──
   const permissionsOk = await requestBluetoothPermissions();
   if (!permissionsOk) {
     console.warn('[BLE] Bluetooth permissions not granted');
@@ -155,7 +110,6 @@ export const connectToWearable = async (cbs: BleCallbacks) => {
 
   callbacks.onStatusChange('scanning');
 
-  // Check if Bluetooth is powered on before scanning
   const stateSubscription = manager.onStateChange((state) => {
     if (state === State.PoweredOn) {
       stateSubscription.remove();
@@ -190,7 +144,6 @@ const startScan = () => {
     }
   });
 
-  // Auto-stop scan after 15 seconds if device not found
   setTimeout(() => {
     if (isScanning && !connectedDevice && manager) {
       manager.stopDeviceScan();
@@ -217,18 +170,14 @@ const connectToDevice = async (device: Device) => {
     callbacks.onStatusChange('connected');
     console.log('[BLE] Connected and services discovered');
 
-    // Subscribe to live vitals notifications
     subscribeToCharacteristics(connected);
 
-    // Handle unexpected disconnection
     connected.onDisconnected((error, disconnectedDevice) => {
       console.warn('[BLE] Device disconnected:', error?.message ?? 'unknown');
       connectedDevice = null;
       isConnecting = false;
       callbacks?.onStatusChange('disconnected');
 
-      // ── Mitigation [Risk: Disconnection out-of-range] ──
-      // Attempt auto-reconnect if it wasn't a deliberate user logout/disconnect
       if (autoReconnectEnabled && callbacks) {
         console.log('[BLE] Attempting auto-reconnection in 5 seconds...');
         if (reconnectTimeout) clearTimeout(reconnectTimeout);
@@ -249,7 +198,7 @@ const connectToDevice = async (device: Device) => {
 };
 
 const subscribeToCharacteristics = (device: Device) => {
-  // ── Heart Rate ──────────────────────────────────────────────────────────────
+
   device.monitorCharacteristicForService(
     BLE_SERVICE_UUID,
     CHAR_HEART_RATE_UUID,
@@ -264,7 +213,6 @@ const subscribeToCharacteristics = (device: Device) => {
     }
   );
 
-  // ── SpO2 ────────────────────────────────────────────────────────────────────
   device.monitorCharacteristicForService(
     BLE_SERVICE_UUID,
     CHAR_SPO2_UUID,
@@ -279,7 +227,6 @@ const subscribeToCharacteristics = (device: Device) => {
     }
   );
 
-  // ── Fall Detection (BMI160 IMU) ─────────────────────────────────────────────
   device.monitorCharacteristicForService(
     BLE_SERVICE_UUID,
     CHAR_FALL_UUID,
@@ -296,7 +243,6 @@ const subscribeToCharacteristics = (device: Device) => {
   );
 };
 
-/** Trigger the buzzer on the wearable (1 = on, 0 = off). */
 export const triggerBuzzer = async (on: boolean) => {
   if (!connectedDevice) {
     console.warn('[BLE] Cannot trigger buzzer – no device connected');
@@ -314,9 +260,8 @@ export const triggerBuzzer = async (on: boolean) => {
   }
 };
 
-/** Gracefully disconnect from the wearable. */
 export const disconnectWearable = async () => {
-  autoReconnectEnabled = false; // Prevent reconnect loops during intentional logout/disconnect
+  autoReconnectEnabled = false;
   if (reconnectTimeout) {
     clearTimeout(reconnectTimeout);
     reconnectTimeout = null;
@@ -333,7 +278,6 @@ export const disconnectWearable = async () => {
   callbacks = null;
 };
 
-/** Destroy the BleManager (call on app unmount / logout). */
 export const destroyBle = () => {
   disconnectWearable();
   if (manager) {

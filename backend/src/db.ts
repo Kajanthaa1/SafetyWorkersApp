@@ -3,7 +3,6 @@ import * as path from 'path';
 import crypto from 'crypto';
 import * as fs from 'fs';
 
-// ── Database Fallback Logic ──────────────────────────────────────────────────────
 let serviceAccount: any = null;
 let useLocalDb = false;
 
@@ -32,7 +31,6 @@ if (!useLocalDb && serviceAccount) {
 const firestore = useLocalDb ? null : admin.firestore();
 const DATA_DIR = path.join(__dirname, '../data');
 
-// Ensure directory exists
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
@@ -61,7 +59,6 @@ function writeJsonFile<T>(filename: string, data: T): void {
   }
 }
 
-// ── Interfaces ───────────────────────────────────────────────────────────────────
 export interface User {
   id: string;
   username: string;
@@ -123,11 +120,9 @@ export interface EmergencyAlert {
   resolvedAt?: number;
 }
 
-// ── Database Class (Firestore-backed with Local Fallback) ─────────────────────────
 class Database {
   private db = firestore as admin.firestore.Firestore;
 
-  // ── Seeding ────────────────────────────────────────────────────────────────────
   async seedIfNeeded(): Promise<void> {
     if (useLocalDb) {
       const users = await this.getUsers();
@@ -149,7 +144,7 @@ class Database {
       return;
     }
     try {
-      // Seed supervisor account if it doesn't exist
+
       const supervisorSnap = await this.db.collection('users')
         .where('username', '==', 'supervisor1')
         .limit(1)
@@ -173,7 +168,6 @@ class Database {
     }
   }
 
-  // ── Users ──────────────────────────────────────────────────────────────────────
   async getUsers(): Promise<User[]> {
     if (useLocalDb) {
       return readJsonFile<User[]>('users.json', []);
@@ -255,7 +249,6 @@ class Database {
     return { id: doc.id, ...doc.data() } as User;
   }
 
-  // ── Vitals ─────────────────────────────────────────────────────────────────────
   async getVitals(userId: string, minutes: number = 30): Promise<VitalReading[]> {
     if (useLocalDb) {
       const vitals = readJsonFile<VitalReading[]>('vitals.json', []);
@@ -312,7 +305,6 @@ class Database {
     await this.db.collection('vitals').add(reading);
   }
 
-  // ── Falls ──────────────────────────────────────────────────────────────────────
   async getFalls(userId?: string): Promise<FallEvent[]> {
     if (useLocalDb) {
       const falls = readJsonFile<FallEvent[]>('falls.json', []);
@@ -358,7 +350,6 @@ class Database {
     return { id: doc.id, ...doc.data() } as FallEvent;
   }
 
-  // ── Attendance ─────────────────────────────────────────────────────────────────
   async getAttendance(userId?: string): Promise<AttendanceRecord[]> {
     if (useLocalDb) {
       const attendance = readJsonFile<AttendanceRecord[]>('attendance.json', []);
@@ -388,7 +379,6 @@ class Database {
     await this.db.collection('attendance').doc(record.id).set(record);
   }
 
-  // ── Tasks ──────────────────────────────────────────────────────────────────────
   async getTasks(userId?: string): Promise<Task[]> {
     if (useLocalDb) {
       const tasks = readJsonFile<Task[]>('tasks.json', []);
@@ -435,7 +425,6 @@ class Database {
     return { id: doc.id, ...doc.data() } as Task;
   }
 
-  // ── Alerts ─────────────────────────────────────────────────────────────────────
   async getAlerts(userId?: string): Promise<EmergencyAlert[]> {
     if (useLocalDb) {
       const alerts = readJsonFile<EmergencyAlert[]>('alerts.json', []);

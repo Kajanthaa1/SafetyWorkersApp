@@ -1,25 +1,3 @@
-/*
- * CloudUplink.h
- * Smart IoT Worker Safety Watch - Group 10
- *
- * Connects to Wi-Fi and sends sensor data to the cloud / app.
- *
- * NOTE ON THE NAME:
- * This class is called CloudUplink, not NetworkManager, because the
- * ESP32 board package already has its own class named NetworkManager.
- * Two classes with the same name cause a "redefinition" compile error.
- *
- * ==========================================================
- * YOU MUST EDIT THE SETTINGS BELOW
- *   1. Wi-Fi name and password
- *   2. Choose Firebase OR your own backend
- *   3. Put your real URL in
- * ==========================================================
- *
- * No extra library needed. WiFi.h and HTTPClient.h come with
- * the ESP32 board package.
- */
-
 #pragma once
 
 #include <Arduino.h>
@@ -27,48 +5,28 @@
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 
-// =====================================================
-// 1. WI-FI SETTINGS
-// =====================================================
 #define WIFI_SSID      "FOE_Students"
-#define WIFI_PASSWORD  "FOE@30st"      // <-- CHECK THIS IS COMPLETE
+#define WIFI_PASSWORD  "FOE@30st"
 
-#define WIFI_CONNECT_TIMEOUT  15000    // ms to wait at boot
+#define WIFI_CONNECT_TIMEOUT  15000
 
-// =====================================================
-// 2. WHERE TO SEND THE DATA
-//    Set ONE of these to 1, the other to 0.
-// =====================================================
-#define USE_FIREBASE   0     // send straight to Firebase Realtime Database
-#define USE_BACKEND    1     // send to your own Node.js server
+#define USE_FIREBASE   0
+#define USE_BACKEND    1
 
-// ---- Firebase settings (only if USE_FIREBASE is 1) ----
-// Find this in Firebase Console -> Realtime Database.
-// It looks like:  https://myproject-default-rtdb.firebaseio.com
 #define FIREBASE_HOST   "https://YOUR-PROJECT-default-rtdb.firebaseio.com"
 
-// Database secret / auth token. Leave empty "" if your rules allow open writes.
 #define FIREBASE_AUTH   ""
 
-// Which worker is wearing this watch
 #define WORKER_ID       "worker01"
 
-// ---- Your own backend (only if USE_BACKEND is 1) ----
-// Example: "http://192.168.1.50:3000/api/sensor"
 #define BACKEND_URL     "http://10.34.13.10:5000/api/sensor"
 
-// =====================================================
-// 3. HOW OFTEN TO SEND
-// =====================================================
-#define SEND_INTERVAL_MS   2500    // send data every 2.5 seconds (rock solid on ESP32-C3)
-#define HTTP_TIMEOUT_MS    2500    // give up quickly if server is busy
+#define SEND_INTERVAL_MS   2500
+#define HTTP_TIMEOUT_MS    2500
 
 class CloudUplink {
   public:
 
-    // =================================================
-    // CONNECT TO WI-FI (call once in setup)
-    // =================================================
     bool begin() {
       Serial.print(F("Connecting to Wi-Fi: "));
       Serial.println(WIFI_SSID);
@@ -104,10 +62,6 @@ class CloudUplink {
       return _connected;
     }
 
-    // =================================================
-    // TRY TO RECONNECT IF WI-FI DROPPED
-    // Call this from loop(). It does not block.
-    // =================================================
     void maintain() {
       if (WiFi.status() == WL_CONNECTED) {
         _connected = true;
@@ -116,7 +70,6 @@ class CloudUplink {
 
       _connected = false;
 
-      // try again every 10 seconds, but never block the loop
       if (millis() - _lastRetry >= 10000) {
         _lastRetry = millis();
         Serial.println(F("Wi-Fi lost - reconnecting..."));
@@ -125,17 +78,12 @@ class CloudUplink {
       }
     }
 
-    // =================================================
-    // SEND NORMAL SENSOR DATA
-    // Returns true if the server accepted it.
-    // =================================================
     bool sendData(int bpm, int spo2, bool validVitals,
                   float gx, float gy, float gz,
                   bool imuOK, bool fall) {
 
       if (!connected()) return false;
 
-      // only send every SEND_INTERVAL_MS
       if (millis() - _lastSend < SEND_INTERVAL_MS) return false;
       _lastSend = millis();
 
@@ -145,9 +93,6 @@ class CloudUplink {
       return _post(json, false);
     }
 
-    // =================================================
-    // SEND AN EMERGENCY ALERT (immediately, no waiting)
-    // =================================================
     bool sendAlert(int bpm, int spo2, bool validVitals,
                    float gx, float gy, float gz, bool imuOK) {
 
@@ -168,9 +113,6 @@ class CloudUplink {
     unsigned long _lastSend = 0;
     unsigned long _lastRetry = 0;
 
-    // =================================================
-    // Build the JSON message
-    // =================================================
     String _buildJson(int bpm, int spo2, bool validVitals,
                       float gx, float gy, float gz,
                       bool imuOK, bool fall, bool isAlert) {
@@ -180,7 +122,6 @@ class CloudUplink {
       j += "\"workerId\":\"";  j += WORKER_ID;        j += "\",";
       j += "\"uptime\":";      j += millis() / 1000;  j += ",";
 
-      // vitals (allow independent transmission)
       if (bpm >= 35 && bpm <= 220) {
         j += "\"bpm\":"; j += bpm; j += ",";
       } else {
@@ -193,7 +134,6 @@ class CloudUplink {
         j += "\"spo2\":null,";
       }
 
-      // motion
       if (imuOK) {
         j += "\"gx\":"; j += String(gx, 1); j += ",";
         j += "\"gy\":"; j += String(gy, 1); j += ",";
@@ -210,17 +150,12 @@ class CloudUplink {
       return j;
     }
 
-    // =================================================
-    // Send the JSON over HTTP
-    // =================================================
     bool _post(const String &json, bool isAlert) {
       String url;
       bool isHttps = false;
 
 #if USE_FIREBASE
-      // Firebase REST API.
-      // Normal data goes to /workers/<id>/live.json  (overwritten each time)
-      // Alerts go to     /workers/<id>/alerts.json  (a new entry each time)
+
       url  = FIREBASE_HOST;
       url += "/workers/";
       url += WORKER_ID;
@@ -244,13 +179,12 @@ class CloudUplink {
 
       if (isHttps) {
         WiFiClientSecure client;
-        client.setInsecure();          // skip certificate check (prototype only)
+        client.setInsecure();
 
         http.begin(client, url);
         http.setTimeout(HTTP_TIMEOUT_MS);
         http.addHeader("Content-Type", "application/json");
 
-        // Firebase: PUT replaces live data, POST adds a new alert entry
         int code;
 #if USE_FIREBASE
         code = isAlert ? http.POST(json) : http.PUT(json);

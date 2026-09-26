@@ -11,7 +11,7 @@ export interface QueuedReading {
 }
 
 export const offlineQueue = {
-  /** Add vital reading to the offline queue. */
+
   async enqueue(userId: string, bpm: number, spo2: number): Promise<number> {
     try {
       const stored = await AsyncStorage.getItem(QUEUE_KEY);
@@ -31,7 +31,6 @@ export const offlineQueue = {
     }
   },
 
-  /** Get the current size of the offline queue. */
   async getQueueSize(): Promise<number> {
     try {
       const stored = await AsyncStorage.getItem(QUEUE_KEY);
@@ -42,7 +41,6 @@ export const offlineQueue = {
     }
   },
 
-  /** Attempt to upload all queued readings to the backend. */
   async flush(onSuccess?: (reading: QueuedReading) => void): Promise<void> {
     try {
       const stored = await AsyncStorage.getItem(QUEUE_KEY);
@@ -52,14 +50,13 @@ export const offlineQueue = {
       if (queue.length === 0) return;
 
       console.log(`[OfflineQueue] Flushing ${queue.length} queued readings...`);
-      
-      // Flush sequentially to preserve order
+
       for (const item of queue) {
         try {
           await api.submitVitals(item.userId, item.bpm, item.spo2, 'ble');
           if (onSuccess) onSuccess(item);
         } catch (err) {
-          // If a request fails, save the remaining queue back and stop flushing
+
           const failedIndex = queue.indexOf(item);
           const remaining = queue.slice(failedIndex);
           await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));
@@ -68,7 +65,6 @@ export const offlineQueue = {
         }
       }
 
-      // If all synced, clear queue
       await AsyncStorage.removeItem(QUEUE_KEY);
       console.log('[OfflineQueue] Flush complete. Queue cleared.');
     } catch (err) {
